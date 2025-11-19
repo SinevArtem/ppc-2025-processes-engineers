@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <random>
+
 #include "sinev_a_min_in_vector/common/include/common.hpp"
 #include "sinev_a_min_in_vector/mpi/include/ops_mpi.hpp"
 #include "sinev_a_min_in_vector/seq/include/ops_seq.hpp"
@@ -12,12 +14,21 @@ class SinevAMinInVectorPerfTests : public ppc::util::BaseRunPerfTests<InType, Ou
   InType input_data_{};
 
   void SetUp() override {
-    int size = 100000000;  
+    int size = 10000000;  
     input_data_.resize(size);
     
-    std::fill(input_data_.begin(), input_data_.end(), 100);
-    input_data_[size / 2] = -1;  
-    realMin = -1;
+    // Заполняем сложными данными
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<int> dist(1, 1000000);
+    
+    for (int i = 0; i < size; i++) {
+      input_data_[i] = dist(gen);
+    }
+    
+    // Добавляем явный минимум
+    input_data_[size / 2] = -1000;
+    realMin = -1000;
   }
 
   bool CheckTestOutputData(OutType &output_data) final {

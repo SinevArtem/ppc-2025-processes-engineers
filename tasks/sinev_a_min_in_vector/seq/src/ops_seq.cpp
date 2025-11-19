@@ -25,9 +25,16 @@ bool SinevAMinInVectorSEQ::PreProcessingImpl() {
 
 bool SinevAMinInVectorSEQ::RunImpl() {
 
-  for (size_t i = 1; i < GetInput().size(); i++)
-  {
-    if (GetInput()[i] < GetOutput()) GetOutput() = GetInput()[i];
+  if (GetInput().empty()) {
+    return true;
+  }
+
+  GetOutput() = GetInput()[0];
+  
+  for (size_t i = 1; i < GetInput().size(); i++) {
+    if (GetInput()[i] < GetOutput()) {
+      GetOutput() = GetInput()[i];
+    }
   }
   
   return true;

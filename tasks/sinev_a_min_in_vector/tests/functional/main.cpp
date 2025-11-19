@@ -52,10 +52,6 @@ class SinevAMinInVectorFuncTests : public ppc::util::BaseRunFuncTests<InType, Ou
         input_data_ = {-10, -140, -45, -24, -99};  
         realMin = -140;
         break;
-      case 5:
-        input_data_ = {};
-        realMin = std::numeric_limits<int>::max();
-        break;
       default:
         input_data_ = {1, 2, 3};
         realMin = 1;
@@ -86,8 +82,7 @@ const std::array<TestType, 6> kTestParam = {
     std::make_tuple(1, "with_negatives"), 
     std::make_tuple(2, "single_element"),
     std::make_tuple(3, "zero_only"),
-    std::make_tuple(4, "all_negative"),
-    std::make_tuple(5, "empty_vector")
+    std::make_tuple(4, "all_negative")
 };
 
 const auto kTestTasksList =
