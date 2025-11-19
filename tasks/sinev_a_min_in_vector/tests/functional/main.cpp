@@ -28,30 +28,42 @@ class SinevAMinInVectorFuncTests : public ppc::util::BaseRunFuncTests<InType, Ou
 
  protected:
   void SetUp() override {
-    int width = -1;
-    int height = -1;
-    int channels = -1;
-    std::vector<uint8_t> img;
-    // Read image
-    {
-      std::string abs_path = ppc::util::GetAbsoluteTaskPath(PPC_ID_sinev_a_min_in_vector, "pic.jpg");
-      auto *data = stbi_load(abs_path.c_str(), &width, &height, &channels, 0);
-      if (data == nullptr) {
-        throw std::runtime_error("Failed to load image: " + std::string(stbi_failure_reason()));
-      }
-      img = std::vector<uint8_t>(data, data + (static_cast<ptrdiff_t>(width * height * channels)));
-      stbi_image_free(data);
-      if (std::cmp_not_equal(width, height)) {
-        throw std::runtime_error("width != height: ");
-      }
-    }
-
     TestType params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
-    input_data_ = width - height + std::min(std::accumulate(img.begin(), img.end(), 0), channels);
+    int test_case = std::get<0>(params);
+    
+    switch (test_case) {
+      case 0:
+        input_data_ = {5, 3, 8, 1, 9, 2};  
+        realMin = 1;
+        break;
+      case 1:
+        input_data_ = {10, -5, 7, 0, 15};  
+        realMin = -5;
+        break;
+      case 2:
+        input_data_ = {42};  
+        realMin = 42;
+        break;
+      case 3:
+        input_data_ = {0};  
+        realMin = 0;
+        break;
+      case 4:
+        input_data_ = {-10, -140, -45, -24, -99};  
+        realMin = -140;
+        break;
+      case 5:
+        input_data_ = {};
+        realMin = std::numeric_limits<int>::max();
+        break;
+      default:
+        input_data_ = {1, 2, 3};
+        realMin = 1;
+    }
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
-    return (input_data_ == output_data);
+    return output_data == realMin;
   }
 
   InType GetTestInputData() final {
@@ -59,7 +71,8 @@ class SinevAMinInVectorFuncTests : public ppc::util::BaseRunFuncTests<InType, Ou
   }
 
  private:
-  InType input_data_ = 0;
+  InType input_data_;
+  int realMin;
 };
 
 namespace {
@@ -68,7 +81,14 @@ TEST_P(SinevAMinInVectorFuncTests, MatmulFromPic) {
   ExecuteTest(GetParam());
 }
 
-const std::array<TestType, 3> kTestParam = {std::make_tuple(3, "3"), std::make_tuple(5, "5"), std::make_tuple(7, "7")};
+const std::array<TestType, 6> kTestParam = {
+    std::make_tuple(0, "mixed_positive"),
+    std::make_tuple(1, "with_negatives"), 
+    std::make_tuple(2, "single_element"),
+    std::make_tuple(3, "zero_only"),
+    std::make_tuple(4, "all_negative"),
+    std::make_tuple(5, "empty_vector")
+};
 
 const auto kTestTasksList =
     std::tuple_cat(ppc::util::AddFuncTask<SinevAMinInVectorMPI, InType>(kTestParam, PPC_SETTINGS_sinev_a_min_in_vector),

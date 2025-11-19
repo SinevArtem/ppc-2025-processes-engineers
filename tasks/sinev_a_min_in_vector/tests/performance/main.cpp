@@ -8,15 +8,20 @@
 namespace sinev_a_min_in_vector {
 
 class SinevAMinInVectorPerfTests : public ppc::util::BaseRunPerfTests<InType, OutType> {
-  const int kCount_ = 100;
+  int realMin;
   InType input_data_{};
 
   void SetUp() override {
-    input_data_ = kCount_;
+    int size = 100000000;  
+    input_data_.resize(size);
+    
+    std::fill(input_data_.begin(), input_data_.end(), 100);
+    input_data_[size / 2] = -1;  
+    realMin = -1;
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
-    return input_data_ == output_data;
+    return output_data == realMin;
   }
 
   InType GetTestInputData() final {

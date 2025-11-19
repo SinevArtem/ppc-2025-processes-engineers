@@ -7,7 +7,7 @@
 
 namespace sinev_a_min_in_vector {
 
-using InType = int;
+using InType = std::vector<int>;
 using OutType = int;
 using TestType = std::tuple<int, std::string>;
 using BaseTask = ppc::task::Task<InType, OutType>;

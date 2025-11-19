@@ -17,6 +17,7 @@ class SinevAMinInVectorSEQ : public BaseTask {
   bool PreProcessingImpl() override;
   bool RunImpl() override;
   bool PostProcessingImpl() override;
+
 };
 
 }  // namespace sinev_a_min_in_vector
