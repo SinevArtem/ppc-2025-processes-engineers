@@ -30,26 +30,26 @@ class SinevAMinInVectorFuncTests : public ppc::util::BaseRunFuncTests<InType, Ou
   void SetUp() override {
     TestType params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
     int test_case = std::get<0>(params);
-    
+
     switch (test_case) {
       case 0:
-        input_data_ = {5, 3, 8, 1, 9, 2};  
+        input_data_ = {5, 3, 8, 1, 9, 2};
         realMin = 1;
         break;
       case 1:
-        input_data_ = {10, -5, 7, 0, 15};  
+        input_data_ = {10, -5, 7, 0, 15};
         realMin = -5;
         break;
       case 2:
-        input_data_ = {42};  
+        input_data_ = {42};
         realMin = 42;
         break;
       case 3:
-        input_data_ = {0};  
+        input_data_ = {0};
         realMin = 0;
         break;
       case 4:
-        input_data_ = {-10, -140, -45, -24, -99};  
+        input_data_ = {-10, -140, -45, -24, -99};
         realMin = -140;
         break;
       default:
@@ -77,17 +77,13 @@ TEST_P(SinevAMinInVectorFuncTests, MatmulFromPic) {
   ExecuteTest(GetParam());
 }
 
-const std::array<TestType, 6> kTestParam = {
-    std::make_tuple(0, "mixed_positive"),
-    std::make_tuple(1, "with_negatives"), 
-    std::make_tuple(2, "single_element"),
-    std::make_tuple(3, "zero_only"),
-    std::make_tuple(4, "all_negative")
-};
+const std::array<TestType, 6> kTestParam = {std::make_tuple(0, "mixed_positive"), std::make_tuple(1, "with_negatives"),
+                                            std::make_tuple(2, "single_element"), std::make_tuple(3, "zero_only"),
+                                            std::make_tuple(4, "all_negative")};
 
-const auto kTestTasksList =
-    std::tuple_cat(ppc::util::AddFuncTask<SinevAMinInVectorMPI, InType>(kTestParam, PPC_SETTINGS_sinev_a_min_in_vector),
-                   ppc::util::AddFuncTask<SinevAMinInVectorSEQ, InType>(kTestParam, PPC_SETTINGS_sinev_a_min_in_vector));
+const auto kTestTasksList = std::tuple_cat(
+    ppc::util::AddFuncTask<SinevAMinInVectorMPI, InType>(kTestParam, PPC_SETTINGS_sinev_a_min_in_vector),
+    ppc::util::AddFuncTask<SinevAMinInVectorSEQ, InType>(kTestParam, PPC_SETTINGS_sinev_a_min_in_vector));
 
 const auto kGtestValues = ppc::util::ExpandToValues(kTestTasksList);
 

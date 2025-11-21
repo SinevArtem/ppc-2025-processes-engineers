@@ -14,18 +14,18 @@ class SinevAMinInVectorPerfTests : public ppc::util::BaseRunPerfTests<InType, Ou
   InType input_data_{};
 
   void SetUp() override {
-    int size = 10000000;  
+    int size = 10000000;
     input_data_.resize(size);
-    
+
     // Заполняем сложными данными
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<int> dist(1, 1000000);
-    
+
     for (int i = 0; i < size; i++) {
       input_data_[i] = dist(gen);
     }
-    
+
     // Добавляем явный минимум
     input_data_[size / 2] = -1000;
     realMin = -1000;

@@ -2,14 +2,12 @@
 
 #include <mpi.h>
 
+#include <algorithm>
 #include <numeric>
 #include <vector>
-#include <limits>
-#include <algorithm>
 
 #include "sinev_a_min_in_vector/common/include/common.hpp"
 #include "util/include/util.hpp"
-
 
 namespace sinev_a_min_in_vector {
 
@@ -24,7 +22,7 @@ bool SinevAMinInVectorMPI::ValidationImpl() {
 }
 
 bool SinevAMinInVectorMPI::PreProcessingImpl() {
-  GetOutput() = std::numeric_limits<int>::max();
+  GetOutput() = INT_MAX;
   return true;
 }
 
@@ -35,13 +33,13 @@ bool SinevAMinInVectorMPI::RunImpl() {
   MPI_Comm_size(MPI_COMM_WORLD, &ProcNum);
   MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
 
-  const auto& myVector = GetInput();
+  std::vector<int> &myVector = GetInput();
   int minNumber = INT_MAX;
 
   int blockVector = myVector.size() / ProcNum;
-  int remainder = myVector.size() % ProcNum; // остаток, если не идеально ровно поделим
+  int remainder = myVector.size() % ProcNum;  // остаток, если не идеально ровно поделим
 
-  int startIndex = ProcRank*blockVector + std::min(ProcRank, remainder);
+  int startIndex = ProcRank * blockVector + std::min(ProcRank, remainder);
   int endIndex = startIndex + blockVector + (ProcRank < remainder ? 1 : 0);
 
   for (int i = startIndex; i < endIndex; i++) {
@@ -56,11 +54,10 @@ bool SinevAMinInVectorMPI::RunImpl() {
   GetOutput() = generalMin;
 
   return true;
-
 }
 
 bool SinevAMinInVectorMPI::PostProcessingImpl() {
-  return GetOutput() > std::numeric_limits<int>::min();
+  return GetOutput() > INT_MIN;
 }
 
 }  // namespace sinev_a_min_in_vector
