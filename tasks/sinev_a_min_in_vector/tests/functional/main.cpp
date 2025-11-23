@@ -1,9 +1,10 @@
 #include <gtest/gtest.h>
 #include <stb/stb_image.h>
 
-#include <algorithm>
 #include <array>
 #include <cstddef>
+#include <string>
+#include <tuple>
 
 #include "sinev_a_min_in_vector/common/include/common.hpp"
 #include "sinev_a_min_in_vector/mpi/include/ops_mpi.hpp"

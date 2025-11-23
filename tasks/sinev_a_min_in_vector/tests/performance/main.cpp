@@ -11,7 +11,7 @@ namespace sinev_a_min_in_vector {
 
 class SinevAMinInVectorPerfTests : public ppc::util::BaseRunPerfTests<InType, OutType> {
   int real_min_{};
-  InType input_data_{};
+  InType input_data_;
 
   void SetUp() override {
     int size = 10000000;
