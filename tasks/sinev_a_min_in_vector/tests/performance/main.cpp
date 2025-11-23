@@ -14,7 +14,7 @@ class SinevAMinInVectorPerfTests : public ppc::util::BaseRunPerfTests<InType, Ou
   InType input_data_;
 
   void SetUp() override {
-    int size = 10000000;
+    int size = 100000000;
     input_data_.resize(size);
 
     // Заполняем сложными данными
