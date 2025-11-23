@@ -1,6 +1,9 @@
 #include "sinev_a_min_in_vector/seq/include/ops_seq.hpp"
 
-#include <numeric>
+#include <algorithm>
+#include <climits>
+#include <cstddef>
+#include <limits>
 #include <vector>
 
 #include "sinev_a_min_in_vector/common/include/common.hpp"

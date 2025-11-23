@@ -3,7 +3,7 @@
 #include <mpi.h>
 
 #include <algorithm>
-#include <numeric>
+#include <climits>
 #include <vector>
 
 #include "sinev_a_min_in_vector/common/include/common.hpp"
@@ -27,32 +27,29 @@ bool SinevAMinInVectorMPI::PreProcessingImpl() {
 }
 
 bool SinevAMinInVectorMPI::RunImpl() {
-  int ProcNum;
-  int ProcRank;
+  int proc_num = 0;
+  int proc_rank = 0;
 
-  MPI_Comm_size(MPI_COMM_WORLD, &ProcNum);
-  MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+  MPI_Comm_size(MPI_COMM_WORLD, &proc_num);
+  MPI_Comm_rank(MPI_COMM_WORLD, &proc_rank);
 
-  std::vector<int> &myVector = GetInput();
-  int minNumber = INT_MAX;
+  std::vector<int> &my_vector = GetInput();
+  int min_number = INT_MAX;
 
-  int blockVector = myVector.size() / ProcNum;
-  int remainder = myVector.size() % ProcNum;  // остаток, если не идеально ровно поделим
+  int block_vector = static_cast<int>(my_vector.size()) / proc_num;
+  int remainder = static_cast<int>(my_vector.size()) % proc_num;
 
-  int startIndex = ProcRank * blockVector + std::min(ProcRank, remainder);
-  int endIndex = startIndex + blockVector + (ProcRank < remainder ? 1 : 0);
+  int start_index = (proc_rank * block_vector) + std::min(proc_rank, remainder);
+  int end_index = start_index + block_vector + (proc_rank < remainder ? 1 : 0);
 
-  for (int i = startIndex; i < endIndex; i++) {
-    if (myVector[i] < minNumber) {
-      minNumber = myVector[i];
-    }
+  for (int i = start_index; i < end_index; i++) {
+    min_number = std::min(my_vector[i], min_number);
   }
 
-  int generalMin = INT_MAX;
-  MPI_Allreduce(&minNumber, &generalMin, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
+  int general_min = INT_MAX;
+  MPI_Allreduce(&min_number, &general_min, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
 
-  GetOutput() = generalMin;
-
+  GetOutput() = general_min;
   return true;
 }
 

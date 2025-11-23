@@ -10,7 +10,7 @@
 namespace sinev_a_min_in_vector {
 
 class SinevAMinInVectorPerfTests : public ppc::util::BaseRunPerfTests<InType, OutType> {
-  int realMin;
+  int real_min_{};
   InType input_data_{};
 
   void SetUp() override {
@@ -28,11 +28,11 @@ class SinevAMinInVectorPerfTests : public ppc::util::BaseRunPerfTests<InType, Ou
 
     // Добавляем явный минимум
     input_data_[size / 2] = -1000;
-    realMin = -1000;
+    real_min_ = -1000;
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
-    return output_data == realMin;
+    return output_data == real_min_;
   }
 
   InType GetTestInputData() final {

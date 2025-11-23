@@ -2,14 +2,6 @@
 #include <stb/stb_image.h>
 
 #include <algorithm>
-#include <array>
-#include <cstddef>
-#include <cstdint>
-#include <numeric>
-#include <stdexcept>
-#include <string>
-#include <tuple>
-#include <utility>
 #include <vector>
 
 #include "sinev_a_min_in_vector/common/include/common.hpp"
@@ -34,32 +26,32 @@ class SinevAMinInVectorFuncTests : public ppc::util::BaseRunFuncTests<InType, Ou
     switch (test_case) {
       case 0:
         input_data_ = {5, 3, 8, 1, 9, 2};
-        realMin = 1;
+        real_min_ = 1;
         break;
       case 1:
         input_data_ = {10, -5, 7, 0, 15};
-        realMin = -5;
+        real_min_ = -5;
         break;
       case 2:
         input_data_ = {42};
-        realMin = 42;
+        real_min_ = 42;
         break;
       case 3:
         input_data_ = {0};
-        realMin = 0;
+        real_min_ = 0;
         break;
       case 4:
         input_data_ = {-10, -140, -45, -24, -99};
-        realMin = -140;
+        real_min_ = -140;
         break;
       default:
         input_data_ = {1, 2, 3};
-        realMin = 1;
+        real_min_ = 1;
     }
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
-    return output_data == realMin;
+    return output_data == real_min_;
   }
 
   InType GetTestInputData() final {
@@ -67,8 +59,8 @@ class SinevAMinInVectorFuncTests : public ppc::util::BaseRunFuncTests<InType, Ou
   }
 
  private:
-  InType input_data_;
-  int realMin;
+  InType input_data_{};
+  int real_min_{};
 };
 
 namespace {
