@@ -7,7 +7,6 @@
 #include <vector>
 
 #include "sinev_a_min_in_vector/common/include/common.hpp"
-#include "util/include/util.hpp"
 
 namespace sinev_a_min_in_vector {
 

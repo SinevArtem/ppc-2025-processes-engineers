@@ -2,7 +2,8 @@
 #include <stb/stb_image.h>
 
 #include <algorithm>
-#include <vector>
+#include <array>
+#include <cstddef>
 
 #include "sinev_a_min_in_vector/common/include/common.hpp"
 #include "sinev_a_min_in_vector/mpi/include/ops_mpi.hpp"
@@ -59,7 +60,7 @@ class SinevAMinInVectorFuncTests : public ppc::util::BaseRunFuncTests<InType, Ou
   }
 
  private:
-  InType input_data_{};
+  InType input_data_;
   int real_min_{};
 };
 

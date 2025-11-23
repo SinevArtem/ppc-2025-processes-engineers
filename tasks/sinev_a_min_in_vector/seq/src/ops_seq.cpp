@@ -34,9 +34,7 @@ bool SinevAMinInVectorSEQ::RunImpl() {
   GetOutput() = GetInput()[0];
 
   for (size_t i = 1; i < GetInput().size(); i++) {
-    if (GetInput()[i] < GetOutput()) {
-      GetOutput() = GetInput()[i];
-    }
+    GetOutput() = std::min(GetInput()[i], GetOutput());
   }
 
   return true;
