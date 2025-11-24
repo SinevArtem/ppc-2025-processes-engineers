@@ -37,7 +37,8 @@ bool SinevAMinInVectorMPI::PreProcessingImpl() {
 }
 
 bool SinevAMinInVectorMPI::RunImpl() {
-  int proc_num = 0, proc_rank = 0;
+  int proc_num = 0;
+  int proc_rank = 0;
   MPI_Comm_size(MPI_COMM_WORLD, &proc_num);
   MPI_Comm_rank(MPI_COMM_WORLD, &proc_rank);
 
