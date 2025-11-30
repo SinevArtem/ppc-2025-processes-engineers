@@ -1,7 +1,6 @@
 #include "sinev_a_min_in_vector/seq/include/ops_seq.hpp"
 
 #include <algorithm>
-#include <climits>
 #include <cstddef>
 #include <limits>
 #include <vector>
@@ -13,7 +12,7 @@ namespace sinev_a_min_in_vector {
 SinevAMinInVectorSEQ::SinevAMinInVectorSEQ(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
-  GetOutput() = 0;
+  GetOutput() = std::numeric_limits<int>::max();
 }
 
 bool SinevAMinInVectorSEQ::ValidationImpl() {
@@ -40,7 +39,7 @@ bool SinevAMinInVectorSEQ::RunImpl() {
 }
 
 bool SinevAMinInVectorSEQ::PostProcessingImpl() {
-  return GetOutput() > std::numeric_limits<int>::min();
+  return true;
 }
 
 }  // namespace sinev_a_min_in_vector

@@ -134,7 +134,7 @@ bool SinevAMinInVectorMPI::RunImpl() {
   MPI_Bcast(&global_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
   if (global_size == 0) {
-    GetOutput() = INT_MAX;
+    GetOutput() = std::numeric_limits<int>::max();
     return true;
   }
 
@@ -168,19 +168,53 @@ bool SinevAMinInVectorMPI::RunImpl() {
                local_data.data(), local_size, MPI_INT, 0, MPI_COMM_WORLD);
 
   // Локальное вычисление минимума
-  int local_min = INT_MAX;
+  int local_min = std::numeric_limits<int>::max();
   for (int value : local_data) {
     local_min = std::min(local_min, value);
   }
 
   // Глобальная редукция для нахождения общего минимума
-  int global_min = INT_MAX;
+  int global_min = std::numeric_limits<int>::max();
   MPI_Allreduce(&local_min, &global_min, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
 
   GetOutput() = global_min;
   return true;
 }
+
+bool SinevAMinInVectorMPI::PostProcessingImpl() {
+  return true;
+}
 ```
+## Особенности обработки граничных случаев
+
+В процессе разработки возникла проблема с валидацией результатов в методе PostProcessingImpl(). Изначальная реализация содержала проверку:
+
+```cpp
+// НЕВЕРНАЯ реализация
+bool PostProcessingImpl() {
+  return GetOutput() > INT_MIN;
+}
+```
+Данная проверка некорректно отвергала валидные результаты, когда минимальным элементом вектора действительно являлось значение INT_MIN.
+Было изменено на:
+
+```cpp
+bool PostProcessingImpl() {
+  return true;  // Если алгоритм дошел до этой стадии - все корректно
+}
+```
+
+**Был выбран подход безусловного успеха, так как:**
+  - Корректность алгоритма гарантируется на этапах Validation и Run
+  - Минимальные накладные расходы - отсутствие дополнительных проверок
+
+В финальной версии также произведен переход с макроса INT_MIN на типобезопасный `std::numeric_limits<int>::min()`:
+
+```cpp
+// Более безопасная альтернатива
+GetOutput() = std::numeric_limits<int>::max();  // Вместо INT_MAX
+```
+
 
 ## 6. Экспериментальное окружение
 
@@ -286,8 +320,9 @@ SEQ и MPI версии выдают идентичные результаты �
 #include "sinev_a_min_in_vector/mpi/include/ops_mpi.hpp"
 #include <mpi.h>
 #include <algorithm>
-#include <climits>
+#include <limits>
 #include <vector>
+
 #include "sinev_a_min_in_vector/common/include/common.hpp"
 
 namespace sinev_a_min_in_vector {
@@ -295,7 +330,7 @@ namespace sinev_a_min_in_vector {
 SinevAMinInVectorMPI::SinevAMinInVectorMPI(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
-  GetOutput() = 0;
+  GetOutput() = std::numeric_limits<int>::max();
 }
 
 bool SinevAMinInVectorMPI::ValidationImpl() {
@@ -314,7 +349,6 @@ bool SinevAMinInVectorMPI::ValidationImpl() {
 }
 
 bool SinevAMinInVectorMPI::PreProcessingImpl() {
-  GetOutput() = INT_MAX;
   return true;
 }
 
@@ -331,10 +365,11 @@ bool SinevAMinInVectorMPI::RunImpl() {
     global_size = static_cast<int>(GetInput().size());
   }
 
+  // Рассылаем размер всем процессам
   MPI_Bcast(&global_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
   if (global_size == 0) {
-    GetOutput() = INT_MAX;
+    GetOutput() = std::numeric_limits<int>::max();
     return true;
   }
 
@@ -357,16 +392,15 @@ bool SinevAMinInVectorMPI::RunImpl() {
   MPI_Bcast(sendcounts.data(), proc_num, MPI_INT, 0, MPI_COMM_WORLD);
   MPI_Bcast(displacements.data(), proc_num, MPI_INT, 0, MPI_COMM_WORLD);
 
-  MPI_Scatterv(proc_rank == 0 ? GetInput().data() : nullptr, 
-               sendcounts.data(), displacements.data(), MPI_INT,
+  MPI_Scatterv(proc_rank == 0 ? GetInput().data() : nullptr, sendcounts.data(), displacements.data(), MPI_INT,
                local_data.data(), local_size, MPI_INT, 0, MPI_COMM_WORLD);
 
-  int local_min = INT_MAX;
+  int local_min = std::numeric_limits<int>::max();
   for (int value : local_data) {
     local_min = std::min(local_min, value);
   }
 
-  int global_min = INT_MAX;
+  int global_min = std::numeric_limits<int>::max();
   MPI_Allreduce(&local_min, &global_min, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
 
   GetOutput() = global_min;
@@ -374,8 +408,9 @@ bool SinevAMinInVectorMPI::RunImpl() {
 }
 
 bool SinevAMinInVectorMPI::PostProcessingImpl() {
-  return GetOutput() > INT_MIN;
+  return true;
 }
 
 }  // namespace sinev_a_min_in_vector
+
 ```

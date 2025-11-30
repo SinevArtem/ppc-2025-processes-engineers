@@ -3,7 +3,7 @@
 #include <mpi.h>
 
 #include <algorithm>
-#include <climits>
+#include <limits>
 #include <vector>
 
 #include "sinev_a_min_in_vector/common/include/common.hpp"
@@ -13,7 +13,7 @@ namespace sinev_a_min_in_vector {
 SinevAMinInVectorMPI::SinevAMinInVectorMPI(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
-  GetOutput() = 0;
+  GetOutput() = std::numeric_limits<int>::max();
 }
 
 bool SinevAMinInVectorMPI::ValidationImpl() {
@@ -32,7 +32,6 @@ bool SinevAMinInVectorMPI::ValidationImpl() {
 }
 
 bool SinevAMinInVectorMPI::PreProcessingImpl() {
-  GetOutput() = INT_MAX;
   return true;
 }
 
@@ -53,7 +52,7 @@ bool SinevAMinInVectorMPI::RunImpl() {
   MPI_Bcast(&global_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
   if (global_size == 0) {
-    GetOutput() = INT_MAX;
+    GetOutput() = std::numeric_limits<int>::max();
     return true;
   }
 
@@ -79,12 +78,12 @@ bool SinevAMinInVectorMPI::RunImpl() {
   MPI_Scatterv(proc_rank == 0 ? GetInput().data() : nullptr, sendcounts.data(), displacements.data(), MPI_INT,
                local_data.data(), local_size, MPI_INT, 0, MPI_COMM_WORLD);
 
-  int local_min = INT_MAX;
+  int local_min = std::numeric_limits<int>::max();
   for (int value : local_data) {
     local_min = std::min(local_min, value);
   }
 
-  int global_min = INT_MAX;
+  int global_min = std::numeric_limits<int>::max();
   MPI_Allreduce(&local_min, &global_min, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
 
   GetOutput() = global_min;
@@ -92,7 +91,7 @@ bool SinevAMinInVectorMPI::RunImpl() {
 }
 
 bool SinevAMinInVectorMPI::PostProcessingImpl() {
-  return GetOutput() > INT_MIN;
+  return true;
 }
 
 }  // namespace sinev_a_min_in_vector
