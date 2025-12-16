@@ -12,18 +12,18 @@ class SinevAAllreduce : public BaseTask {
   }
   explicit SinevAAllreduce(const InType &in);
 
-  int MPI_Allreduce_custom(const void *sendbuf, void *recvbuf, int count,
-                          MPI_Datatype datatype, MPI_Op op, MPI_Comm comm);
  private:
   bool ValidationImpl() override;
   bool PreProcessingImpl() override;
   bool RunImpl() override;
   bool PostProcessingImpl() override;
   
-  // Вспомогательные функции для ALLREDUCE
-  int GetTypeSize(MPI_Datatype datatype) const;
-  void PerformOperation(void *inout, const void *in, int count,
-                       MPI_Datatype datatype, MPI_Op op) const;
+  int MPI_Allreduce_custom(const void *sendbuf, void *recvbuf, int count,
+                          MPI_Datatype datatype, MPI_Op op, MPI_Comm comm);
+
+  void performOperation(void *inout, const void *in, int count, MPI_Datatype datatype, MPI_Op op);
+
+  int getTypeSize(MPI_Datatype datatype) const;
 };
 
 }  // namespace sinev_a_allreduce

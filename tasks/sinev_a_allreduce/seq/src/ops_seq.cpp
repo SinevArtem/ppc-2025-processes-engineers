@@ -8,14 +8,52 @@
 
 namespace sinev_a_allreduce {
 
+
+namespace {
+
+template <typename T, MPI_Datatype MpiType>
+bool ProcessAllreduceWithMPI(const InType &input, OutType &output) {
+  auto &input_vec = std::get<std::vector<T>>(input);
+  auto &output_vec = std::get<std::vector<T>>(output);
+
+  // Проверяем размеры
+  if (output_vec.size() != input_vec.size()) {
+    output_vec.resize(input_vec.size());
+  }
+
+  // Используем оригинальный MPI_Allreduce
+  if (!input_vec.empty()) {
+    // Создаем временную копию для sendbuf (чтобы не менять исходные данные)
+    std::vector<T> temp = input_vec;
+    
+    MPI_Allreduce(
+      temp.data(),          // send buffer (временная копия)
+      output_vec.data(),    // receive buffer
+      static_cast<int>(input_vec.size()),  // count
+      MpiType,              // MPI data type
+      MPI_SUM,              // operation (сумма)
+      MPI_COMM_WORLD        // communicator
+    );
+  }
+  
+  return true;
+}
+
+}  // namespace
+
 SinevAAllreduceSEQ::SinevAAllreduceSEQ(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
-  GetOutput() = 0;
+  GetOutput() = in;
 }
 
 bool SinevAAllreduceSEQ::ValidationImpl() {
-  return true;
+  try {
+    return true;
+  } catch (...) {
+    return false;
+  }
+  return false;
 }
 
 bool SinevAAllreduceSEQ::PreProcessingImpl() {
@@ -23,7 +61,12 @@ bool SinevAAllreduceSEQ::PreProcessingImpl() {
 }
 
 bool SinevAAllreduceSEQ::RunImpl() {
-  return true;
+  try {
+    GetOutput() = GetInput(); 
+    return true;
+  } catch (const std::exception &) {
+    return false;
+  }
 }
 
 bool SinevAAllreduceSEQ::PostProcessingImpl() {
