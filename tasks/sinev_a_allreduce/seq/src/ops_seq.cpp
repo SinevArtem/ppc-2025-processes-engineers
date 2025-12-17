@@ -1,5 +1,6 @@
 #include "sinev_a_allreduce/seq/include/ops_seq.hpp"
 
+#include <mpi.h>
 #include <numeric>
 #include <vector>
 
@@ -11,32 +12,26 @@ namespace sinev_a_allreduce {
 
 namespace {
 
-template <typename T, MPI_Datatype MpiType>
-bool ProcessAllreduceWithMPI(const InType &input, OutType &output) {
-  auto &input_vec = std::get<std::vector<T>>(input);
-  auto &output_vec = std::get<std::vector<T>>(output);
-
-  // Проверяем размеры
-  if (output_vec.size() != input_vec.size()) {
-    output_vec.resize(input_vec.size());
-  }
-
-  // Используем оригинальный MPI_Allreduce
-  if (!input_vec.empty()) {
-    // Создаем временную копию для sendbuf (чтобы не менять исходные данные)
-    std::vector<T> temp = input_vec;
-    
-    MPI_Allreduce(
-      temp.data(),          // send buffer (временная копия)
-      output_vec.data(),    // receive buffer
-      static_cast<int>(input_vec.size()),  // count
-      MpiType,              // MPI data type
-      MPI_SUM,              // operation (сумма)
-      MPI_COMM_WORLD        // communicator
-    );
+// Вспомогательная функция для выполнения MPI_Allreduce
+template <typename T>
+void PerformMPIAllreduce(const std::vector<T>& input, std::vector<T>& output, 
+                         MPI_Datatype mpi_type) {
+  // Убеждаемся, что выходной вектор правильного размера
+  if (output.size() != input.size()) {
+    output.resize(input.size());
   }
   
-  return true;
+  // Выполняем MPI_Allreduce для суммирования
+  if (!input.empty()) {
+    MPI_Allreduce(
+      input.data(),        // send buffer (исходные данные)
+      output.data(),       // receive buffer (результат суммирования)
+      static_cast<int>(input.size()),  // количество элементов
+      mpi_type,            // MPI тип данных
+      MPI_SUM,             // операция - СУММИРОВАНИЕ
+      MPI_COMM_WORLD       // коммуникатор
+    );
+  }
 }
 
 }  // namespace
@@ -47,13 +42,12 @@ SinevAAllreduceSEQ::SinevAAllreduceSEQ(const InType &in) {
   GetOutput() = in;
 }
 
+
+
 bool SinevAAllreduceSEQ::ValidationImpl() {
-  try {
-    return true;
-  } catch (...) {
-    return false;
-  }
-  return false;
+  int initialized;
+  MPI_Initialized(&initialized);
+  return initialized == 1;
 }
 
 bool SinevAAllreduceSEQ::PreProcessingImpl() {
@@ -61,12 +55,27 @@ bool SinevAAllreduceSEQ::PreProcessingImpl() {
 }
 
 bool SinevAAllreduceSEQ::RunImpl() {
-  try {
-    GetOutput() = GetInput(); 
-    return true;
-  } catch (const std::exception &) {
-    return false;
+  auto& input = GetInput();
+  auto& output = GetOutput();
+  
+  // Обрабатываем каждый тип данных
+  if (std::holds_alternative<std::vector<int>>(input)) {
+    auto& in_vec = std::get<std::vector<int>>(input);
+    auto& out_vec = std::get<std::vector<int>>(output);
+    PerformMPIAllreduce(in_vec, out_vec, MPI_INT);
+    
+  } else if (std::holds_alternative<std::vector<float>>(input)) {
+    auto& in_vec = std::get<std::vector<float>>(input);
+    auto& out_vec = std::get<std::vector<float>>(output);
+    PerformMPIAllreduce(in_vec, out_vec, MPI_FLOAT);
+    
+  } else if (std::holds_alternative<std::vector<double>>(input)) {
+    auto& in_vec = std::get<std::vector<double>>(input);
+    auto& out_vec = std::get<std::vector<double>>(output);
+    PerformMPIAllreduce(in_vec, out_vec, MPI_DOUBLE);
   }
+  
+  return true;
 }
 
 bool SinevAAllreduceSEQ::PostProcessingImpl() {
