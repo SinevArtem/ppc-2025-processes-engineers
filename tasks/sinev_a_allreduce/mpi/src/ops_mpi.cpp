@@ -1,8 +1,7 @@
 #include "sinev_a_allreduce/mpi/include/ops_mpi.hpp"
 
 #include <mpi.h>
-
-#include <numeric>
+#include <cstring>
 #include <vector>
 
 #include "sinev_a_allreduce/common/include/common.hpp"
@@ -16,8 +15,6 @@ SinevAAllreduce::SinevAAllreduce(const InType &in) {
   GetOutput() = in;
 }
 
-
-
 bool SinevAAllreduce::ValidationImpl() {
   int initialized;
   MPI_Initialized(&initialized);
@@ -27,8 +24,9 @@ bool SinevAAllreduce::ValidationImpl() {
 bool SinevAAllreduce::PreProcessingImpl() {
   return true;
 }
-  
-int SinevAAllreduce::getTypeSize(MPI_Datatype datatype) const {
+
+// Статические вспомогательные функции
+int SinevAAllreduce::getTypeSize(MPI_Datatype datatype) {
   if (datatype == MPI_INT) return sizeof(int);
   if (datatype == MPI_FLOAT) return sizeof(float);
   if (datatype == MPI_DOUBLE) return sizeof(double);
@@ -55,83 +53,114 @@ void SinevAAllreduce::performOperation(void *inout, const void *in, int count,
   }
 }
 
+// Основная функция Allreduce
 int SinevAAllreduce::MPI_Allreduce_custom(const void *sendbuf, void *recvbuf, int count,
                                          MPI_Datatype datatype, MPI_Op op, MPI_Comm comm) {
   int rank, size;
   MPI_Comm_rank(comm, &rank);
   MPI_Comm_size(comm, &size);
   
+  // Случай одного процесса
+  if (size == 1) {
+    int type_size = getTypeSize(datatype);
+    std::memcpy(recvbuf, sendbuf, count * type_size);
+    return 0;
+  }
+  
   int type_size = getTypeSize(datatype);
   int total_size = count * type_size;
   
-  // Локальный буфер
-  std::vector<char> buffer(total_size);
-  std::memcpy(buffer.data(), sendbuf, total_size);
+  // Локальный буфер для промежуточных результатов
+  std::vector<char> local_buffer(total_size);
+  std::memcpy(local_buffer.data(), sendbuf, total_size);
   
-  // Фаза 1: Reduce через двоичное дерево
+  // Фаза 1: Reduce через бинарное дерево
   int mask = 1;
   while (mask < size) {
     int partner = rank ^ mask;
+    
     if (partner < size) {
       if ((rank & mask) == 0) {
-        std::vector<char> temp(total_size);
-        MPI_Recv(temp.data(), total_size, MPI_BYTE, partner, 0, comm, MPI_STATUS_IGNORE);
-        performOperation(buffer.data(), temp.data(), count, datatype, op);
+        // Этот процесс получает данные
+        std::vector<char> recv_buffer(total_size);
+        MPI_Recv(recv_buffer.data(), total_size, MPI_BYTE, 
+                 partner, 0, comm, MPI_STATUS_IGNORE);
+        performOperation(local_buffer.data(), recv_buffer.data(), 
+                         count, datatype, op);
       } else {
-        MPI_Send(buffer.data(), total_size, MPI_BYTE, partner, 0, comm);
+        // Этот процесс отправляет данные
+        MPI_Send(local_buffer.data(), total_size, MPI_BYTE, 
+                 partner, 0, comm);
+        // Отправитель завершает участие в reduce
         break;
       }
     }
     mask <<= 1;
   }
   
-  // Фаза 2: Broadcast через обратное дерево
-  mask = size >> 1;
-  while (mask > 0) {
-    int partner = rank ^ mask;
-    if (partner < size) {
-      if ((rank & mask) == 0) {
-        MPI_Send(buffer.data(), total_size, MPI_BYTE, partner, 1, comm);
-      } else {
-        MPI_Recv(buffer.data(), total_size, MPI_BYTE, partner, 1, comm, MPI_STATUS_IGNORE);
-      }
+  // Фаза 2: Broadcast от процесса 0 всем
+  if (rank == 0) {
+    // Процесс 0 копирует результат
+    std::memcpy(recvbuf, local_buffer.data(), total_size);
+    
+    // Отправляет всем остальным процессам
+    for (int i = 1; i < size; i++) {
+      MPI_Send(local_buffer.data(), count, datatype, i, 1, comm);
     }
-    mask >>= 1;
+  } else {
+    // Остальные процессы получают от процесса 0
+    MPI_Recv(recvbuf, count, datatype, 0, 1, comm, MPI_STATUS_IGNORE);
   }
   
-  std::memcpy(recvbuf, buffer.data(), total_size);
-  return MPI_SUCCESS;
+  return 0;
 }
 
 bool SinevAAllreduce::RunImpl() {
   auto& input_variant = GetInput();
   auto& output_variant = GetOutput();
-
-  // Общая лямбда для выполнения Allreduce
-  auto executeAllreduce = [this](auto& input, auto& output, MPI_Datatype type) {
-    output = input; // Копируем вход в выход
-    MPI_Allreduce_custom(input.data(), output.data(), input.size(), 
-                         type, MPI_SUM, MPI_COMM_WORLD);
-  };
   
-  // Проверяем тип данных и выполняем Allreduce
-  if (std::holds_alternative<std::vector<int>>(input_variant)) {
-    auto& input = std::get<std::vector<int>>(input_variant);
-    auto& output = std::get<std::vector<int>>(output_variant);
-    executeAllreduce(input, output, MPI_INT);
+  try {
+    if (std::holds_alternative<std::vector<int>>(input_variant)) {
+      auto& input = std::get<std::vector<int>>(input_variant);
+      auto& output = std::get<std::vector<int>>(output_variant);
+      
+      if (output.size() != input.size()) {
+        output.resize(input.size());
+      }
+      
+      MPI_Allreduce_custom(input.data(), output.data(), 
+                          static_cast<int>(input.size()), 
+                          MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+      
+    } else if (std::holds_alternative<std::vector<float>>(input_variant)) {
+      auto& input = std::get<std::vector<float>>(input_variant);
+      auto& output = std::get<std::vector<float>>(output_variant);
+      
+      if (output.size() != input.size()) {
+        output.resize(input.size());
+      }
+      
+      MPI_Allreduce_custom(input.data(), output.data(), 
+                          static_cast<int>(input.size()), 
+                          MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
+      
+    } else if (std::holds_alternative<std::vector<double>>(input_variant)) {
+      auto& input = std::get<std::vector<double>>(input_variant);
+      auto& output = std::get<std::vector<double>>(output_variant);
+      
+      if (output.size() != input.size()) {
+        output.resize(input.size());
+      }
+      
+      MPI_Allreduce_custom(input.data(), output.data(), 
+                          static_cast<int>(input.size()), 
+                          MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    }
     
-  } else if (std::holds_alternative<std::vector<float>>(input_variant)) {
-    auto& input = std::get<std::vector<float>>(input_variant);
-    auto& output = std::get<std::vector<float>>(output_variant);
-    executeAllreduce(input, output, MPI_FLOAT);
-    
-  } else if (std::holds_alternative<std::vector<double>>(input_variant)) {
-    auto& input = std::get<std::vector<double>>(input_variant);
-    auto& output = std::get<std::vector<double>>(output_variant);
-    executeAllreduce(input, output, MPI_DOUBLE);
+    return true;
+  } catch (...) {
+    return false;
   }
-  
-  return true;
 }
 
 bool SinevAAllreduce::PostProcessingImpl() {
