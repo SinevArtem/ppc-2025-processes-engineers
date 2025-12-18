@@ -50,8 +50,8 @@ class SinevAAllreduceFuncTests : public ppc::util::BaseRunFuncTests<InType, OutT
     } else if (data_type == "float") {
       std::vector<float> vec(vector_size);
       for (int i = 0; i < vector_size; i++) {
-        float rank_float = static_cast<float>(rank + 1);
-        float i_float = static_cast<float>(i);
+        auto rank_float = static_cast<float>(rank + 1);
+        auto i_float = static_cast<float>(i);
         vec[i] = (rank_float * 100.0F) + i_float;
       }
       input_data_ = vec;
@@ -105,9 +105,9 @@ class SinevAAllreduceFuncTests : public ppc::util::BaseRunFuncTests<InType, OutT
           }
 
           for (size_t i = 0; i < vec.size(); i++) {
-            float total_sum_float = static_cast<float>(total_sum);
-            float i_float = static_cast<float>(i);
-            float world_size_float = static_cast<float>(world_size);
+            auto total_sum_float = static_cast<float>(total_sum);
+            auto i_float = static_cast<float>(i);
+            auto world_size_float = static_cast<float>(world_size);
             float expected = (total_sum_float * 100.0F) + (i_float * world_size_float);
 
             if (std::fabs(vec[i] - expected) > 1e-6F) {
