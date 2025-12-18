@@ -52,13 +52,15 @@ class SinevAAllreduceFuncTests : public ppc::util::BaseRunFuncTests<InType, OutT
       for (int i = 0; i < vector_size; i++) {
         float rank_float = static_cast<float>(rank + 1);
         float i_float = static_cast<float>(i);
-        vec[i] = rank_float * 100.0F + i_float;
+        vec[i] = (rank_float * 100.0F) + i_float;
       }
       input_data_ = vec;
     } else if (data_type == "double") {
       std::vector<double> vec(vector_size);
       for (int i = 0; i < vector_size; i++) {
-        vec[i] = static_cast<double>(rank + 1) * 100.0 + static_cast<double>(i);
+        auto rank_double = static_cast<double>(rank + 1);
+        auto i_double = static_cast<double>(i);
+        vec[i] = (rank_double * 100.0) + i_double;
       }
       input_data_ = vec;
     }
@@ -106,7 +108,7 @@ class SinevAAllreduceFuncTests : public ppc::util::BaseRunFuncTests<InType, OutT
             float total_sum_float = static_cast<float>(total_sum);
             float i_float = static_cast<float>(i);
             float world_size_float = static_cast<float>(world_size);
-            float expected = total_sum_float * 100.0F + i_float * world_size_float;
+            float expected = (total_sum_float * 100.0F) + (i_float * world_size_float);
 
             if (std::fabs(vec[i] - expected) > 1e-6F) {
               return false;
@@ -123,8 +125,10 @@ class SinevAAllreduceFuncTests : public ppc::util::BaseRunFuncTests<InType, OutT
           }
 
           for (size_t i = 0; i < vec.size(); i++) {
-            auto expected = static_cast<double>((static_cast<double>(total_sum) * 100.0) +
-                                                (static_cast<double>(i) * static_cast<double>(world_size)));
+            auto total_sum_double = static_cast<double>(total_sum);
+            auto i_double = static_cast<double>(i);
+            auto world_size_double = static_cast<double>(world_size);
+            double expected = (total_sum_double * 100.0) + (i_double * world_size_double);
             if (std::fabs(vec[i] - expected) > 1e-9) {
               return false;
             }
