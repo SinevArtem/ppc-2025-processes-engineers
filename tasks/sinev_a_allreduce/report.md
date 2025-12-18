@@ -84,21 +84,21 @@ int partner = rank ^ mask;       // Вычисление партнера с п�
 if ((rank & mask) == 0) {       // Определение роли: получатель (0) или отправитель
 ```
 
-- Исходный вектор хранится только на процессе с рангом 0
-- Данные распределяются между процессами с помощью MPI_Scatterv
-- Каждый процесс получает непрерывный блок элементов
-- Процессы с меньшим rank получают дополнительный элемент при наличии остатка
+**Двухфазный подход**
+
+- Фаза редукции: Сбор данных к корню (процессу 0) с поэтапным суммированием
+- Фаза рассылки: Распространение результата от корня всем процессам
+
+**Распределение нагрузки**
+
+- Каждый процесс участвует в вычислениях
+- Работа распределяется равномерно между всеми процессами
+- Коммуникации происходят параллельно на каждом этапе
 
 **Роли процессов**
-- **Процесс 0:** Хранит исходные данные, распределяет данные между процессами
-- **Все процессы:** Выполняют вычисления на выделенных порциях данных
-- **MPI_Allreduce:** Собирает локальные минимумы и вычисляет глобальный минимум
-
-**Схема коммуникации**
-- **Фаза вычислений:** Каждый процесс независимо вычисляет локальный минимум
-- **Фаза редукции:** MPI_Allreduce собирает все локальные минимумы и находит глобальный минимум
-- **Фаза синхронизации:** MPI_Bcast для распространения размера данных
-- **Фаза распределения:** MPI_Scatterv распределяет данные между процессами
+- **Процесс 0:** Координирует рассылку финального результата
+- **Все процессы:** Вычисляют локальные суммы и участвуют в обмене данными
+- **Каждая пара процессов:** Работает параллельно на каждом этапе
 
 ## 5. Детали реализации
 
@@ -119,112 +119,106 @@ if ((rank & mask) == 0) {       // Определение роли: получа
 - `RunImpl()` - основной алгоритм
 - `PostProcessingImpl()` - завершающая обработка
 
-**Ключевые особенности реализации:**
+## Особенности реализации
+
+**Основная функция MPI_Allreduce_custom:**
+
 ```cpp
-bool SinevAMinInVectorMPI::ValidationImpl() {
-  int proc_rank = 0;
-  MPI_Comm_rank(MPI_COMM_WORLD, &proc_rank);
-
-  bool is_valid = true;
-
-  // Проверка выполняется только на root процессе
-  if (proc_rank == 0) {
-    is_valid = !GetInput().empty();
+int SinevAAllreduce::MPI_Allreduce_custom(const void *sendbuf, void *recvbuf, 
+                                         int count, MPI_Datatype datatype,
+                                         MPI_Op op, MPI_Comm comm) {
+  int rank, size;
+  MPI_Comm_rank(comm, &rank);
+  MPI_Comm_size(comm, &size);
+  
+  // Специальный случай: один процесс
+  if (size == 1) {
+    int type_size = getTypeSize(datatype);
+    std::memcpy(recvbuf, sendbuf, count * type_size);
+    return 0;
   }
-
-  // Результат проверки рассылается всем процессам
-  MPI_Bcast(&is_valid, 1, MPI_C_BOOL, 0, MPI_COMM_WORLD);
-
-  return is_valid;
-}
-
-bool SinevAMinInVectorMPI::RunImpl() {
-  int proc_num = 0;
-  int proc_rank = 0;
-  MPI_Comm_size(MPI_COMM_WORLD, &proc_num);
-  MPI_Comm_rank(MPI_COMM_WORLD, &proc_rank);
-
-  std::vector<int> local_data;
-  int global_size = 0;
-
-  // Только процесс 0 знает исходные данные
-  if (proc_rank == 0) {
-    global_size = static_cast<int>(GetInput().size());
-  }
-
-  // Рассылаем размер всем процессам
-  MPI_Bcast(&global_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
-
-  if (global_size == 0) {
-    GetOutput() = std::numeric_limits<int>::max();
-    return true;
-  }
-
-  // Вычисляем распределение данных
-  int block_size = global_size / proc_num;
-  int remainder = global_size % proc_num;
-
-  // Каждый процесс вычисляет свой локальный размер
-  int local_size = block_size + (proc_rank < remainder ? 1 : 0);
-  local_data.resize(local_size);
-
-  // Подготавливаем массивы для Scatterv
-  std::vector<int> sendcounts(proc_num);
-  std::vector<int> displacements(proc_num);
-
-  // Только процесс 0 заполняет массивы распределения
-  if (proc_rank == 0) {
-    for (int i = 0; i < proc_num; i++) {
-      sendcounts[i] = block_size + (i < remainder ? 1 : 0);
-      displacements[i] = (i * block_size) + std::min(i, remainder);
+  
+  int type_size = getTypeSize(datatype);
+  int total_bytes = count * type_size;
+  
+  // Локальный буфер для данных
+  std::vector<char> local_buffer(total_bytes);
+  std::memcpy(local_buffer.data(), sendbuf, total_bytes);
+  
+  // === ФАЗА 1: РЕДУКЦИЯ (двоичное дерево) ===
+  int mask = 1;
+  while (mask < size) {
+    int partner = rank ^ mask;
+    
+    if (partner < size) {
+      if ((rank & mask) == 0) {
+        // Этот процесс получает и суммирует
+        std::vector<char> recv_buffer(total_bytes);
+        MPI_Recv(recv_buffer.data(), total_bytes, MPI_BYTE, 
+                partner, 0, comm, MPI_STATUS_IGNORE);
+        performOperation(local_buffer.data(), recv_buffer.data(), 
+                        count, datatype, op);
+      } else {
+        // Этот процесс отправляет и завершает фазу редукции
+        MPI_Send(local_buffer.data(), total_bytes, MPI_BYTE, 
+                partner, 0, comm);
+        break;
+      }
     }
+    mask <<= 1;
   }
-
-  // Рассылаем информацию о распределении всем процессам
-  MPI_Bcast(sendcounts.data(), proc_num, MPI_INT, 0, MPI_COMM_WORLD);
-  MPI_Bcast(displacements.data(), proc_num, MPI_INT, 0, MPI_COMM_WORLD);
-
-  // Распределяем данные по процессам
-  MPI_Scatterv(proc_rank == 0 ? GetInput().data() : nullptr, 
-               sendcounts.data(), displacements.data(), MPI_INT,
-               local_data.data(), local_size, MPI_INT, 0, MPI_COMM_WORLD);
-
-  // Локальное вычисление минимума
-  int local_min = std::numeric_limits<int>::max();
-  for (int value : local_data) {
-    local_min = std::min(local_min, value);
+  
+  // === ФАЗА 2: РАССЫЛКА ===
+  if (rank == 0) {
+    std::memcpy(recvbuf, local_buffer.data(), total_bytes);
+    for (int i = 1; i < size; i++) {
+      MPI_Send(recvbuf, count, datatype, i, 1, comm);
+    }
+  } else {
+    MPI_Recv(recvbuf, count, datatype, 0, 1, comm, MPI_STATUS_IGNORE);
   }
-
-  // Глобальная редукция для нахождения общего минимума
-  int global_min = std::numeric_limits<int>::max();
-  MPI_Allreduce(&local_min, &global_min, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
-
-  GetOutput() = global_min;
-  return true;
-}
-
-bool SinevAMinInVectorMPI::PostProcessingImpl() {
-  return true;
+  
+  return 0;
 }
 ```
-## Особенности обработки граничных случаев
 
-В процессе разработки возникла проблема с валидацией результатов в методе PostProcessingImpl(). Изначальная реализация содержала проверку:
+**Обработка разных типов данных:**
 
 ```cpp
-// НЕВЕРНАЯ реализация
-bool PostProcessingImpl() {
-  return GetOutput() > INT_MIN;
+void SinevAAllreduce::performOperation(void *inout, const void *in, 
+                                      int count, MPI_Datatype datatype, 
+                                      MPI_Op op) {
+  if (op != MPI_SUM) return;
+  
+  if (datatype == MPI_INT) {
+    performSumTemplate(static_cast<int*>(inout), 
+                      static_cast<const int*>(in), count);
+  } else if (datatype == MPI_FLOAT) {
+    performSumTemplate(static_cast<float*>(inout), 
+                      static_cast<const float*>(in), count);
+  } else if (datatype == MPI_DOUBLE) {
+    performSumTemplate(static_cast<double*>(inout), 
+                      static_cast<const double*>(in), count);
+  }
 }
 ```
-Данная проверка некорректно отвергала валидные результаты, когда минимальным элементом вектора действительно являлось значение INT_MIN.
-Было изменено на:
+
+**Шаблонная функция суммирования:**
 
 ```cpp
-bool PostProcessingImpl() {
-  return true;  // Если алгоритм дошел до этой стадии - все корректно
+template <typename T>
+void performSumTemplate(T *out, const T *in, int count) {
+  for (int i = 0; i < count; i++) {
+    out[i] += in[i];
+  }
 }
 ```
+
+## Обработка граничных случаев
+
+- **Один процесс**: Простое копирование данных без коммуникации
+- **MPI_IN_PLACE**: Поддержка работы с одним буфером для ввода/вывода
+- **Пустой вектор**: Корректная обработка нулевого размера данных
 
 **Был выбран подход безусловного успеха, так как:**
   - Корректность алгоритма гарантируется на этапах Validation и Run

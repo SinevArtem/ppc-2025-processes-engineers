@@ -2,8 +2,11 @@
 #include <mpi.h>
 
 #include <array>
+#include <cmath>      
+#include <cstddef>    
 #include <string>
 #include <tuple>
+#include <variant>    
 #include <vector>
 
 #include "sinev_a_allreduce/common/include/common.hpp"
@@ -33,7 +36,7 @@ class SinevAAllreduceFuncTests : public ppc::util::BaseRunFuncTests<InType, OutT
     if (is_mpi_test_) {
       int mpi_init = 0;
       MPI_Initialized(&mpi_init);
-      if (mpi_init) {
+      if (mpi_init != 0) {
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);
       }
     }
@@ -41,13 +44,13 @@ class SinevAAllreduceFuncTests : public ppc::util::BaseRunFuncTests<InType, OutT
     if (data_type == "int") {
       std::vector<int> vec(vector_size);
       for (int i = 0; i < vector_size; i++) {
-        vec[i] = (rank + 1) * 100 + i;
+        vec[i] = ((rank + 1) * 100) + i;
       }
       input_data_ = vec;
     } else if (data_type == "float") {
       std::vector<float> vec(vector_size);
       for (int i = 0; i < vector_size; i++) {
-        vec[i] = static_cast<float>((rank + 1) * 100.0f + i);
+        vec[i] = static_cast<float>((rank + 1) * 100.0F + i);
       }
       input_data_ = vec;
     } else if (data_type == "double") {
@@ -98,8 +101,9 @@ class SinevAAllreduceFuncTests : public ppc::util::BaseRunFuncTests<InType, OutT
           }
 
           for (size_t i = 0; i < vec.size(); i++) {
-            float expected = static_cast<float>(total_sum * 100.0f + i * world_size);
-            if (std::fabs(vec[i] - expected) > 1e-6f) {
+            float expected = static_cast<float>(static_cast<float>(total_sum) * 100.0F + 
+                  static_cast<float>(i) * static_cast<float>(world_size));
+            if (std::fabs(vec[i] - expected) > 1e-6F) {
               return false;
             }
           }
@@ -114,7 +118,8 @@ class SinevAAllreduceFuncTests : public ppc::util::BaseRunFuncTests<InType, OutT
           }
 
           for (size_t i = 0; i < vec.size(); i++) {
-            double expected = static_cast<double>(total_sum * 100.0 + i * world_size);
+            auto expected = static_cast<float>(static_cast<float>(total_sum) * 100.0F + 
+                static_cast<float>(i) * static_cast<float>(world_size));
             if (std::fabs(vec[i] - expected) > 1e-9) {
               return false;
             }

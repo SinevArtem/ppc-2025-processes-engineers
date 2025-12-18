@@ -3,7 +3,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>   
 #include <random>
+#include <string>     
+#include <tuple>
+#include <variant>
 #include <vector>
 
 #include "sinev_a_allreduce/common/include/common.hpp"

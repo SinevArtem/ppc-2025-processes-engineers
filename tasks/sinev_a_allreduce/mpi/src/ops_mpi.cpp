@@ -1,5 +1,6 @@
 #include "sinev_a_allreduce/mpi/include/ops_mpi.hpp"
 
+#include <mpi.h>
 #include <cstddef>
 #include <cstring>
 #include <variant>
@@ -39,12 +40,15 @@ int SinevAAllreduce::GetTypeSize(MPI_Datatype datatype) {
   return 1;
 }
 
+namespace {
 template <typename T>
-static void performSumTemplate(T *out, const T *in, int count) {
+void performSumTemplate(T *out, const T *in, int count) {
   for (int i = 0; i < count; i++) {
     out[i] += in[i];
   }
 }
+}  // namespace
+
 
 void SinevAAllreduce::PerformOperation(void *inout, const void *in, int count, MPI_Datatype datatype, MPI_Op op) {
   if (op != MPI_SUM) {
@@ -69,7 +73,8 @@ int SinevAAllreduce::MpiAllreduceCustom(const void *sendbuf, void *recvbuf, int 
 
   if (size == 1) {
     int type_size = GetTypeSize(datatype);
-    std::memcpy(recvbuf, sendbuf, static_cast<size_t>(count * type_size));
+    size_t total_size = static_cast<size_t>(count) * static_cast<size_t>(type_size);
+    std::memcpy(recvbuf, sendbuf, total_size);
     return 0;
   }
 

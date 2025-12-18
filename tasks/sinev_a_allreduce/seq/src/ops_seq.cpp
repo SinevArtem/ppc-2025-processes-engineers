@@ -1,6 +1,6 @@
 #include "sinev_a_allreduce/seq/include/ops_seq.hpp"
 
-#include <numeric>
+#include <exception>  
 #include <vector>
 
 #include "sinev_a_allreduce/common/include/common.hpp"
