@@ -25,7 +25,6 @@ bool SinevAAllreduce::PreProcessingImpl() {
   return true;
 }
 
-// Статические вспомогательные функции
 int SinevAAllreduce::getTypeSize(MPI_Datatype datatype) {
   if (datatype == MPI_INT) return sizeof(int);
   if (datatype == MPI_FLOAT) return sizeof(float);
@@ -53,14 +52,12 @@ void SinevAAllreduce::performOperation(void *inout, const void *in, int count,
   }
 }
 
-// Основная функция Allreduce
 int SinevAAllreduce::MPI_Allreduce_custom(const void *sendbuf, void *recvbuf, int count,
                                          MPI_Datatype datatype, MPI_Op op, MPI_Comm comm) {
   int rank, size;
   MPI_Comm_rank(comm, &rank);
   MPI_Comm_size(comm, &size);
   
-  // Случай одного процесса
   if (size == 1) {
     int type_size = getTypeSize(datatype);
     std::memcpy(recvbuf, sendbuf, count * type_size);
@@ -70,45 +67,36 @@ int SinevAAllreduce::MPI_Allreduce_custom(const void *sendbuf, void *recvbuf, in
   int type_size = getTypeSize(datatype);
   int total_size = count * type_size;
   
-  // Локальный буфер для промежуточных результатов
   std::vector<char> local_buffer(total_size);
   std::memcpy(local_buffer.data(), sendbuf, total_size);
   
-  // Фаза 1: Reduce через бинарное дерево
   int mask = 1;
   while (mask < size) {
     int partner = rank ^ mask;
     
     if (partner < size) {
       if ((rank & mask) == 0) {
-        // Этот процесс получает данные
         std::vector<char> recv_buffer(total_size);
         MPI_Recv(recv_buffer.data(), total_size, MPI_BYTE, 
                  partner, 0, comm, MPI_STATUS_IGNORE);
         performOperation(local_buffer.data(), recv_buffer.data(), 
                          count, datatype, op);
       } else {
-        // Этот процесс отправляет данные
         MPI_Send(local_buffer.data(), total_size, MPI_BYTE, 
                  partner, 0, comm);
-        // Отправитель завершает участие в reduce
         break;
       }
     }
     mask <<= 1;
   }
   
-  // Фаза 2: Broadcast от процесса 0 всем
   if (rank == 0) {
-    // Процесс 0 копирует результат
     std::memcpy(recvbuf, local_buffer.data(), total_size);
     
-    // Отправляет всем остальным процессам
     for (int i = 1; i < size; i++) {
       MPI_Send(local_buffer.data(), count, datatype, i, 1, comm);
     }
   } else {
-    // Остальные процессы получают от процесса 0
     MPI_Recv(recvbuf, count, datatype, 0, 1, comm, MPI_STATUS_IGNORE);
   }
   

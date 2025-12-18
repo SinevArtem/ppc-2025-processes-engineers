@@ -21,7 +21,6 @@ protected:
     std::string task_name = std::get<1>(param);
     is_mpi_test_ = (task_name.find("mpi") != std::string::npos);
     
-    // Размер как у друга: 10 млн элементов
     const size_t vector_size = 10000000;
     
     int rank = 0;
@@ -29,27 +28,22 @@ protected:
       MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     }
     
-    // РАЗНЫЕ данные для SEQ и MPI как в функциональных тестах!
     std::vector<double> data(vector_size);
     
     if (is_mpi_test_) {
-      // MPI: данные зависят от ранга процесса
       for (size_t i = 0; i < vector_size; ++i) {
         data[i] = static_cast<double>((rank + 1) * 100.0 + i);
       }
     } else {
-      // SEQ: фиксированные данные (как процесс 0 в MPI)
       for (size_t i = 0; i < vector_size; ++i) {
-        data[i] = static_cast<double>(100.0 + i);  // rank = 0: (0+1)*100 + i
+        data[i] = static_cast<double>(100.0 + i);  
       }
     }
     
-    // Сохраняем в правильном типе
     input_data_ = InTypeVariant{data};
   }
 
   bool CheckTestOutputData([[maybe_unused]] OutType &output_data) final {
-    // УПРОЩЁННАЯ проверка для perf тестов
     return true;
   }
 

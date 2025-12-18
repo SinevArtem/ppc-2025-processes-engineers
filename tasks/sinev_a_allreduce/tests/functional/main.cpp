@@ -28,8 +28,6 @@ class SinevAAllreduceFuncTests : public ppc::util::BaseRunFuncTests<InType, OutT
     
     is_mpi_test_ = (task_name.find("mpi") != std::string::npos);
     
-    // Для MPI: разные данные для каждого процесса
-    // Для SEQ: фиксированные данные
     int rank = 0;
     if (is_mpi_test_) {
       int mpi_init = 0;
@@ -63,7 +61,6 @@ class SinevAAllreduceFuncTests : public ppc::util::BaseRunFuncTests<InType, OutT
   bool CheckTestOutputData(OutType &output_data) final {
     try {
       if (is_mpi_test_) {
-        // MPI тест: проверяем сумму всех процессов
         int world_size = 1;
         int mpi_init = 0;
         MPI_Initialized(&mpi_init);
@@ -71,7 +68,6 @@ class SinevAAllreduceFuncTests : public ppc::util::BaseRunFuncTests<InType, OutT
           MPI_Comm_size(MPI_COMM_WORLD, &world_size);
         }
         
-        // Ожидаемая сумма процессов: 1+2+...+world_size
         int total_sum = 0;
         for (int i = 0; i < world_size; i++) {
           total_sum += (i + 1);
@@ -114,7 +110,6 @@ class SinevAAllreduceFuncTests : public ppc::util::BaseRunFuncTests<InType, OutT
         }
         
       } else {
-        // SEQ тест: просто проверяем копирование
         return output_data == input_data_;
       }
       
