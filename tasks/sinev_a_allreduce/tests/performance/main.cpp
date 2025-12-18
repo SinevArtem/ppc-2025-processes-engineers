@@ -32,11 +32,11 @@ class SinevAAllreducePerfTests : public ppc::util::BaseRunPerfTests<InType, OutT
 
     if (is_mpi_test_) {
       for (size_t i = 0; i < vector_size; ++i) {
-        data[i] = static_cast<double>(((rank + 1) * 100.0) + static_cast<double>(i));
+        data[i] = static_cast<double>(rank + 1) * 100.0 + static_cast<double>(i);
       }
     } else {
       for (size_t i = 0; i < vector_size; ++i) {
-        data[i] = static_cast<double>(100.0 + i);
+        data[i] = 100.0 + static_cast<double>(i);
       }
     }
 

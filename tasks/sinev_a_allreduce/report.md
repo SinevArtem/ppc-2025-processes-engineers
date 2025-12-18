@@ -345,9 +345,16 @@ PPC_NUM_PROC=1,2,4
 - Ограниченный набор типов данных
 
 ### 8.3. Особенности реализации
-- **Накладные расходы:** Коммуникационные затраты для малых данных
-- **Оптимальность:** Наиболее эффективен для объемных данных
-- **Перспективы:** Неблокирующие операции для перекрытия вычислений
+
+**Положительные аспекты:**
+
+- Алгоритм двоичного дерева: Логарифмическая сложность по количеству шагов
+- Распределенная работа: Все процессы участвуют в вычислениях
+
+**Проблемные аспекты:**
+
+- Коммуникационные затраты: Доминируют над вычислительными
+- Объем данных: Передача всех данных на каждом шаге
 
 ## 9. Источники
 1. Лекции по параллельному программированию Сысоева А. В
@@ -357,100 +364,177 @@ PPC_NUM_PROC=1,2,4
 ## 10. Приложение
 
 ```cpp
-#include "sinev_a_min_in_vector/mpi/include/ops_mpi.hpp"
+#include "sinev_a_allreduce/mpi/include/ops_mpi.hpp"
+
 #include <mpi.h>
-#include <algorithm>
-#include <limits>
+
+#include <cstddef>
+#include <cstring>
+#include <variant>
 #include <vector>
 
-#include "sinev_a_min_in_vector/common/include/common.hpp"
+#include "sinev_a_allreduce/common/include/common.hpp"
+// #include "util/include/util.hpp"
 
-namespace sinev_a_min_in_vector {
+namespace sinev_a_allreduce {
 
-SinevAMinInVectorMPI::SinevAMinInVectorMPI(const InType &in) {
+SinevAAllreduce::SinevAAllreduce(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
-  GetOutput() = std::numeric_limits<int>::max();
+  GetOutput() = in;
 }
 
-bool SinevAMinInVectorMPI::ValidationImpl() {
-  int proc_rank = 0;
-  MPI_Comm_rank(MPI_COMM_WORLD, &proc_rank);
-
-  bool is_valid = true;
-
-  if (proc_rank == 0) {
-    is_valid = !GetInput().empty();
-  }
-
-  MPI_Bcast(&is_valid, 1, MPI_C_BOOL, 0, MPI_COMM_WORLD);
-
-  return is_valid;
+bool SinevAAllreduce::ValidationImpl() {
+  int initialized = 0;
+  MPI_Initialized(&initialized);
+  return initialized == 1;
 }
 
-bool SinevAMinInVectorMPI::PreProcessingImpl() {
+bool SinevAAllreduce::PreProcessingImpl() {
   return true;
 }
 
-bool SinevAMinInVectorMPI::RunImpl() {
-  int proc_num = 0;
-  int proc_rank = 0;
-  MPI_Comm_size(MPI_COMM_WORLD, &proc_num);
-  MPI_Comm_rank(MPI_COMM_WORLD, &proc_rank);
+int SinevAAllreduce::GetTypeSize(MPI_Datatype datatype) {
+  if (datatype == MPI_INT) {
+    return sizeof(int);
+  }
+  if (datatype == MPI_FLOAT) {
+    return sizeof(float);
+  }
+  if (datatype == MPI_DOUBLE) {
+    return sizeof(double);
+  }
+  return 1;
+}
 
-  std::vector<int> local_data;
-  int global_size = 0;
+namespace {
+template <typename T>
+void PerformSumTemplate(T *out, const T *in, int count) {
+  for (int i = 0; i < count; i++) {
+    out[i] += in[i];
+  }
+}
+}  // namespace
 
-  if (proc_rank == 0) {
-    global_size = static_cast<int>(GetInput().size());
+void SinevAAllreduce::PerformOperation(void *inout, const void *in, int count, MPI_Datatype datatype, MPI_Op op) {
+  if (op != MPI_SUM) {
+    return;
   }
 
-  // Рассылаем размер всем процессам
-  MPI_Bcast(&global_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  if (datatype == MPI_INT) {
+    PerformSumTemplate(static_cast<int *>(inout), static_cast<const int *>(in), count);
+  } else if (datatype == MPI_FLOAT) {
+    PerformSumTemplate(static_cast<float *>(inout), static_cast<const float *>(in), count);
+  } else if (datatype == MPI_DOUBLE) {
+    PerformSumTemplate(static_cast<double *>(inout), static_cast<const double *>(in), count);
+  }
+}
 
-  if (global_size == 0) {
-    GetOutput() = std::numeric_limits<int>::max();
-    return true;
+int SinevAAllreduce::MpiAllreduceCustom(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op,
+                                        MPI_Comm comm) {
+  int rank = 0;
+  int size = 0;
+  MPI_Comm_rank(comm, &rank);
+  MPI_Comm_size(comm, &size);
+
+  if (size == 1) {
+    int type_size = GetTypeSize(datatype);
+    size_t total_size = static_cast<size_t>(count) * static_cast<size_t>(type_size);
+    std::memcpy(recvbuf, sendbuf, total_size);
+    return 0;
   }
 
-  int block_size = global_size / proc_num;
-  int remainder = global_size % proc_num;
+  int type_size = GetTypeSize(datatype);
+  int total_bytes = count * type_size;
 
-  int local_size = block_size + (proc_rank < remainder ? 1 : 0);
-  local_data.resize(local_size);
+  std::vector<char> local_buffer(total_bytes);
 
-  std::vector<int> sendcounts(proc_num);
-  std::vector<int> displacements(proc_num);
+  // Копируем входные данные
+  if (sendbuf == MPI_IN_PLACE) {
+    std::memcpy(local_buffer.data(), recvbuf, total_bytes);
+  } else {
+    std::memcpy(local_buffer.data(), sendbuf, total_bytes);
+  }
 
-  if (proc_rank == 0) {
-    for (int i = 0; i < proc_num; i++) {
-      sendcounts[i] = block_size + (i < remainder ? 1 : 0);
-      displacements[i] = (i * block_size) + std::min(i, remainder);
+  int mask = 1;
+  while (mask < size) {
+    int partner = rank ^ mask;
+
+    if (partner < size) {
+      if ((rank & mask) == 0) {
+        std::vector<char> recv_buffer(total_bytes);
+        MPI_Recv(recv_buffer.data(), total_bytes, MPI_BYTE, partner, 0, comm, MPI_STATUS_IGNORE);
+
+        PerformOperation(local_buffer.data(), recv_buffer.data(), count, datatype, op);
+      } else {
+        MPI_Send(local_buffer.data(), total_bytes, MPI_BYTE, partner, 0, comm);
+        break;
+      }
     }
+    mask <<= 1;
   }
 
-  MPI_Bcast(sendcounts.data(), proc_num, MPI_INT, 0, MPI_COMM_WORLD);
-  MPI_Bcast(displacements.data(), proc_num, MPI_INT, 0, MPI_COMM_WORLD);
+  if (rank == 0) {
+    std::memcpy(recvbuf, local_buffer.data(), total_bytes);
 
-  MPI_Scatterv(proc_rank == 0 ? GetInput().data() : nullptr, sendcounts.data(), displacements.data(), MPI_INT,
-               local_data.data(), local_size, MPI_INT, 0, MPI_COMM_WORLD);
-
-  int local_min = std::numeric_limits<int>::max();
-  for (int value : local_data) {
-    local_min = std::min(local_min, value);
+    for (int i = 1; i < size; i++) {
+      MPI_Send(recvbuf, count, datatype, i, 1, comm);
+    }
+  } else {
+    MPI_Recv(recvbuf, count, datatype, 0, 1, comm, MPI_STATUS_IGNORE);
   }
 
-  int global_min = std::numeric_limits<int>::max();
-  MPI_Allreduce(&local_min, &global_min, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
+  return 0;
+}
 
-  GetOutput() = global_min;
+bool SinevAAllreduce::RunImpl() {
+  auto &input_variant = GetInput();
+  auto &output_variant = GetOutput();
+
+  try {
+    if (std::holds_alternative<std::vector<int>>(input_variant)) {
+      auto &input = std::get<std::vector<int>>(input_variant);
+      auto &output = std::get<std::vector<int>>(output_variant);
+
+      if (output.size() != input.size()) {
+        output.resize(input.size());
+      }
+
+      MpiAllreduceCustom(input.data(), output.data(), static_cast<int>(input.size()), MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+
+    } else if (std::holds_alternative<std::vector<float>>(input_variant)) {
+      auto &input = std::get<std::vector<float>>(input_variant);
+      auto &output = std::get<std::vector<float>>(output_variant);
+
+      if (output.size() != input.size()) {
+        output.resize(input.size());
+      }
+
+      MpiAllreduceCustom(input.data(), output.data(), static_cast<int>(input.size()), MPI_FLOAT, MPI_SUM,
+                         MPI_COMM_WORLD);
+
+    } else if (std::holds_alternative<std::vector<double>>(input_variant)) {
+      auto &input = std::get<std::vector<double>>(input_variant);
+      auto &output = std::get<std::vector<double>>(output_variant);
+
+      if (output.size() != input.size()) {
+        output.resize(input.size());
+      }
+
+      MpiAllreduceCustom(input.data(), output.data(), static_cast<int>(input.size()), MPI_DOUBLE, MPI_SUM,
+                         MPI_COMM_WORLD);
+    }
+
+    return true;
+  } catch (...) {
+    return false;
+  }
+}
+
+bool SinevAAllreduce::PostProcessingImpl() {
   return true;
 }
 
-bool SinevAMinInVectorMPI::PostProcessingImpl() {
-  return true;
-}
-
-}  // namespace sinev_a_min_in_vector
+}  // namespace sinev_a_allreduce
 
 ```
