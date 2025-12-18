@@ -1,7 +1,7 @@
 #include "sinev_a_allreduce/mpi/include/ops_mpi.hpp"
 
-#include <mpi.h>
-
+#include <cstddef>      
+#include <variant>      
 #include <cstring>
 #include <vector>
 
@@ -17,7 +17,7 @@ SinevAAllreduce::SinevAAllreduce(const InType &in) {
 }
 
 bool SinevAAllreduce::ValidationImpl() {
-  int initialized;
+  int initialized = 0;
   MPI_Initialized(&initialized);
   return initialized == 1;
 }
@@ -26,7 +26,7 @@ bool SinevAAllreduce::PreProcessingImpl() {
   return true;
 }
 
-int SinevAAllreduce::getTypeSize(MPI_Datatype datatype) {
+int SinevAAllreduce::GetTypeSize(MPI_Datatype datatype) {
   if (datatype == MPI_INT) {
     return sizeof(int);
   }
@@ -40,13 +40,13 @@ int SinevAAllreduce::getTypeSize(MPI_Datatype datatype) {
 }
 
 template <typename T>
-void performSumTemplate(T *out, const T *in, int count) {
+static void performSumTemplate(T *out, const T *in, int count) {
   for (int i = 0; i < count; i++) {
     out[i] += in[i];
   }
 }
 
-void SinevAAllreduce::performOperation(void *inout, const void *in, int count, MPI_Datatype datatype, MPI_Op op) {
+void SinevAAllreduce::PerformOperation(void *inout, const void *in, int count, MPI_Datatype datatype, MPI_Op op) {
   if (op != MPI_SUM) {
     return;
   }
@@ -60,19 +60,20 @@ void SinevAAllreduce::performOperation(void *inout, const void *in, int count, M
   }
 }
 
-int SinevAAllreduce::MPI_Allreduce_custom(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype,
+int SinevAAllreduce::MpiAllreduceCustom(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype,
                                           MPI_Op op, MPI_Comm comm) {
-  int rank, size;
+  int rank = 0; 
+  int size = 0;
   MPI_Comm_rank(comm, &rank);
   MPI_Comm_size(comm, &size);
 
   if (size == 1) {
-    int type_size = getTypeSize(datatype);
-    std::memcpy(recvbuf, sendbuf, count * type_size);
+    int type_size = GetTypeSize(datatype);
+    std::memcpy(recvbuf, sendbuf, static_cast<size_t>(count * type_size));
     return 0;
   }
 
-  int type_size = getTypeSize(datatype);
+  int type_size = GetTypeSize(datatype);
   int total_bytes = count * type_size;
 
   std::vector<char> local_buffer(total_bytes);
@@ -93,7 +94,7 @@ int SinevAAllreduce::MPI_Allreduce_custom(const void *sendbuf, void *recvbuf, in
         std::vector<char> recv_buffer(total_bytes);
         MPI_Recv(recv_buffer.data(), total_bytes, MPI_BYTE, partner, 0, comm, MPI_STATUS_IGNORE);
 
-        performOperation(local_buffer.data(), recv_buffer.data(), count, datatype, op);
+        PerformOperation(local_buffer.data(), recv_buffer.data(), count, datatype, op);
       } else {
         MPI_Send(local_buffer.data(), total_bytes, MPI_BYTE, partner, 0, comm);
         break;
@@ -128,7 +129,7 @@ bool SinevAAllreduce::RunImpl() {
         output.resize(input.size());
       }
 
-      MPI_Allreduce_custom(input.data(), output.data(), static_cast<int>(input.size()), MPI_INT, MPI_SUM,
+      MpiAllreduceCustom(input.data(), output.data(), static_cast<int>(input.size()), MPI_INT, MPI_SUM,
                            MPI_COMM_WORLD);
 
     } else if (std::holds_alternative<std::vector<float>>(input_variant)) {
@@ -139,7 +140,7 @@ bool SinevAAllreduce::RunImpl() {
         output.resize(input.size());
       }
 
-      MPI_Allreduce_custom(input.data(), output.data(), static_cast<int>(input.size()), MPI_FLOAT, MPI_SUM,
+      MpiAllreduceCustom(input.data(), output.data(), static_cast<int>(input.size()), MPI_FLOAT, MPI_SUM,
                            MPI_COMM_WORLD);
 
     } else if (std::holds_alternative<std::vector<double>>(input_variant)) {
@@ -150,7 +151,7 @@ bool SinevAAllreduce::RunImpl() {
         output.resize(input.size());
       }
 
-      MPI_Allreduce_custom(input.data(), output.data(), static_cast<int>(input.size()), MPI_DOUBLE, MPI_SUM,
+      MpiAllreduceCustom(input.data(), output.data(), static_cast<int>(input.size()), MPI_DOUBLE, MPI_SUM,
                            MPI_COMM_WORLD);
     }
 

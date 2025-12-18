@@ -1,5 +1,7 @@
 #pragma once
 
+#include <mpi.h>
+
 #include "sinev_a_allreduce/common/include/common.hpp"
 #include "task/include/task.hpp"
 
@@ -18,12 +20,12 @@ class SinevAAllreduce : public BaseTask {
   bool RunImpl() override;
   bool PostProcessingImpl() override;
 
-  static int MPI_Allreduce_custom(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op,
+  static int MpiAllreduceCustom(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op,
                                   MPI_Comm comm);
 
-  static void performOperation(void *inout, const void *in, int count, MPI_Datatype datatype, MPI_Op op);
+  static void PerformOperation(void *inout, const void *in, int count, MPI_Datatype datatype, MPI_Op op);
 
-  static int getTypeSize(MPI_Datatype datatype);
+  static int GetTypeSize(MPI_Datatype datatype);
 };
 
 }  // namespace sinev_a_allreduce
