@@ -21,7 +21,7 @@ class SinevAAllreduce : public BaseTask {
   bool PostProcessingImpl() override;
 
   static int MpiAllreduceCustom(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op,
-                                  MPI_Comm comm);
+                                MPI_Comm comm);
 
   static void PerformOperation(void *inout, const void *in, int count, MPI_Datatype datatype, MPI_Op op);
 

@@ -1,8 +1,8 @@
 #include "sinev_a_allreduce/mpi/include/ops_mpi.hpp"
 
-#include <cstddef>      
-#include <variant>      
+#include <cstddef>
 #include <cstring>
+#include <variant>
 #include <vector>
 
 #include "sinev_a_allreduce/common/include/common.hpp"
@@ -60,9 +60,9 @@ void SinevAAllreduce::PerformOperation(void *inout, const void *in, int count, M
   }
 }
 
-int SinevAAllreduce::MpiAllreduceCustom(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype,
-                                          MPI_Op op, MPI_Comm comm) {
-  int rank = 0; 
+int SinevAAllreduce::MpiAllreduceCustom(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op,
+                                        MPI_Comm comm) {
+  int rank = 0;
   int size = 0;
   MPI_Comm_rank(comm, &rank);
   MPI_Comm_size(comm, &size);
@@ -129,8 +129,7 @@ bool SinevAAllreduce::RunImpl() {
         output.resize(input.size());
       }
 
-      MpiAllreduceCustom(input.data(), output.data(), static_cast<int>(input.size()), MPI_INT, MPI_SUM,
-                           MPI_COMM_WORLD);
+      MpiAllreduceCustom(input.data(), output.data(), static_cast<int>(input.size()), MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
     } else if (std::holds_alternative<std::vector<float>>(input_variant)) {
       auto &input = std::get<std::vector<float>>(input_variant);
@@ -141,7 +140,7 @@ bool SinevAAllreduce::RunImpl() {
       }
 
       MpiAllreduceCustom(input.data(), output.data(), static_cast<int>(input.size()), MPI_FLOAT, MPI_SUM,
-                           MPI_COMM_WORLD);
+                         MPI_COMM_WORLD);
 
     } else if (std::holds_alternative<std::vector<double>>(input_variant)) {
       auto &input = std::get<std::vector<double>>(input_variant);
@@ -152,7 +151,7 @@ bool SinevAAllreduce::RunImpl() {
       }
 
       MpiAllreduceCustom(input.data(), output.data(), static_cast<int>(input.size()), MPI_DOUBLE, MPI_SUM,
-                           MPI_COMM_WORLD);
+                         MPI_COMM_WORLD);
     }
 
     return true;
