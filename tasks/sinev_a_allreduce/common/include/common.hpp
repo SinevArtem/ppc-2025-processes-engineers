@@ -1,10 +1,11 @@
 #pragma once
 
+#include <mpi.h>
+
 #include <string>
 #include <tuple>
 #include <variant>
 #include <vector>
-#include <mpi.h>
 
 #include "task/include/task.hpp"
 
@@ -16,6 +17,5 @@ using InType = InTypeVariant;
 using OutType = InTypeVariant;
 using TestType = std::tuple<int, std::string>;
 using BaseTask = ppc::task::Task<InType, OutType>;
-
 
 }  // namespace sinev_a_allreduce

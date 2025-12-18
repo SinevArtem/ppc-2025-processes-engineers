@@ -17,13 +17,12 @@ class SinevAAllreduce : public BaseTask {
   bool PreProcessingImpl() override;
   bool RunImpl() override;
   bool PostProcessingImpl() override;
-  
-  static int MPI_Allreduce_custom(const void *sendbuf, void *recvbuf, int count,
-                                 MPI_Datatype datatype, MPI_Op op, MPI_Comm comm);
-  
-  static void performOperation(void *inout, const void *in, int count, 
-                              MPI_Datatype datatype, MPI_Op op);
-  
+
+  static int MPI_Allreduce_custom(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op,
+                                  MPI_Comm comm);
+
+  static void performOperation(void *inout, const void *in, int count, MPI_Datatype datatype, MPI_Op op);
+
   static int getTypeSize(MPI_Datatype datatype);
 };
 

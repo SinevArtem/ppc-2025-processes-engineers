@@ -14,8 +14,6 @@ SinevAAllreduceSEQ::SinevAAllreduceSEQ(const InType &in) {
   GetOutput() = in;
 }
 
-
-
 bool SinevAAllreduceSEQ::ValidationImpl() {
   try {
     return true;
@@ -32,7 +30,7 @@ bool SinevAAllreduceSEQ::RunImpl() {
   try {
     GetOutput() = GetInput();
     return true;
-  } catch (const std::exception&) {
+  } catch (const std::exception &) {
     return false;
   }
 }

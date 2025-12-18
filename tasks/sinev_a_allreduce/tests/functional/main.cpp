@@ -1,9 +1,10 @@
 #include <gtest/gtest.h>
 #include <mpi.h>
-#include <vector>
-#include <tuple>
-#include <string>
+
 #include <array>
+#include <string>
+#include <tuple>
+#include <vector>
 
 #include "sinev_a_allreduce/common/include/common.hpp"
 #include "sinev_a_allreduce/mpi/include/ops_mpi.hpp"
@@ -25,9 +26,9 @@ class SinevAAllreduceFuncTests : public ppc::util::BaseRunFuncTests<InType, OutT
     int vector_size = std::get<0>(test_param);
     std::string data_type = std::get<1>(test_param);
     std::string task_name = std::get<1>(param);
-    
+
     is_mpi_test_ = (task_name.find("mpi") != std::string::npos);
-    
+
     int rank = 0;
     if (is_mpi_test_) {
       int mpi_init = 0;
@@ -36,7 +37,7 @@ class SinevAAllreduceFuncTests : public ppc::util::BaseRunFuncTests<InType, OutT
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);
       }
     }
-    
+
     if (data_type == "int") {
       std::vector<int> vec(vector_size);
       for (int i = 0; i < vector_size; i++) {
@@ -67,52 +68,64 @@ class SinevAAllreduceFuncTests : public ppc::util::BaseRunFuncTests<InType, OutT
         if (mpi_init) {
           MPI_Comm_size(MPI_COMM_WORLD, &world_size);
         }
-        
+
         int total_sum = 0;
         for (int i = 0; i < world_size; i++) {
           total_sum += (i + 1);
         }
-        
+
         if (std::holds_alternative<std::vector<int>>(output_data)) {
-          auto& vec = std::get<std::vector<int>>(output_data);
-          auto& input_vec = std::get<std::vector<int>>(input_data_);
-          if (vec.size() != input_vec.size()) return false;
-          
+          auto &vec = std::get<std::vector<int>>(output_data);
+          auto &input_vec = std::get<std::vector<int>>(input_data_);
+          if (vec.size() != input_vec.size()) {
+            return false;
+          }
+
           for (size_t i = 0; i < vec.size(); i++) {
             int expected = total_sum * 100 + static_cast<int>(i) * world_size;
-            if (vec[i] != expected) return false;
+            if (vec[i] != expected) {
+              return false;
+            }
           }
           return true;
         }
-        
+
         if (std::holds_alternative<std::vector<float>>(output_data)) {
-          auto& vec = std::get<std::vector<float>>(output_data);
-          auto& input_vec = std::get<std::vector<float>>(input_data_);
-          if (vec.size() != input_vec.size()) return false;
-          
+          auto &vec = std::get<std::vector<float>>(output_data);
+          auto &input_vec = std::get<std::vector<float>>(input_data_);
+          if (vec.size() != input_vec.size()) {
+            return false;
+          }
+
           for (size_t i = 0; i < vec.size(); i++) {
             float expected = static_cast<float>(total_sum * 100.0f + i * world_size);
-            if (std::fabs(vec[i] - expected) > 1e-6f) return false;
+            if (std::fabs(vec[i] - expected) > 1e-6f) {
+              return false;
+            }
           }
           return true;
         }
-        
+
         if (std::holds_alternative<std::vector<double>>(output_data)) {
-          auto& vec = std::get<std::vector<double>>(output_data);
-          auto& input_vec = std::get<std::vector<double>>(input_data_);
-          if (vec.size() != input_vec.size()) return false;
-          
+          auto &vec = std::get<std::vector<double>>(output_data);
+          auto &input_vec = std::get<std::vector<double>>(input_data_);
+          if (vec.size() != input_vec.size()) {
+            return false;
+          }
+
           for (size_t i = 0; i < vec.size(); i++) {
             double expected = static_cast<double>(total_sum * 100.0 + i * world_size);
-            if (std::fabs(vec[i] - expected) > 1e-9) return false;
+            if (std::fabs(vec[i] - expected) > 1e-9) {
+              return false;
+            }
           }
           return true;
         }
-        
+
       } else {
         return output_data == input_data_;
       }
-      
+
       return false;
     } catch (...) {
       return false;
@@ -135,15 +148,9 @@ TEST_P(SinevAAllreduceFuncTests, VectorAllreduceTests) {
 }
 
 const std::array<TestType, 9> kTestParam = {
-  std::make_tuple(1, "int"),
-  std::make_tuple(10, "int"),
-  std::make_tuple(100, "int"),
-  std::make_tuple(1000, "int"),
-  std::make_tuple(1, "float"),
-  std::make_tuple(10, "float"),
-  std::make_tuple(100, "float"),
-  std::make_tuple(1, "double"),
-  std::make_tuple(10, "double"),
+    std::make_tuple(1, "int"),     std::make_tuple(10, "int"),   std::make_tuple(100, "int"),
+    std::make_tuple(1000, "int"),  std::make_tuple(1, "float"),  std::make_tuple(10, "float"),
+    std::make_tuple(100, "float"), std::make_tuple(1, "double"), std::make_tuple(10, "double"),
 };
 
 const auto kTestTasksList =

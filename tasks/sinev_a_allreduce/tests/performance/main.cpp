@@ -1,11 +1,10 @@
 #include <gtest/gtest.h>
-
 #include <mpi.h>
 
-#include <random>
-#include <vector>
 #include <algorithm>
 #include <cmath>
+#include <random>
+#include <vector>
 
 #include "sinev_a_allreduce/common/include/common.hpp"
 #include "sinev_a_allreduce/mpi/include/ops_mpi.hpp"
@@ -15,31 +14,31 @@
 namespace sinev_a_allreduce {
 
 class SinevAAllreducePerfTests : public ppc::util::BaseRunPerfTests<InType, OutType> {
-protected:
+ protected:
   void SetUp() override {
     auto param = GetParam();
     std::string task_name = std::get<1>(param);
     is_mpi_test_ = (task_name.find("mpi") != std::string::npos);
-    
+
     const size_t vector_size = 10000000;
-    
+
     int rank = 0;
     if (is_mpi_test_) {
       MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     }
-    
+
     std::vector<double> data(vector_size);
-    
+
     if (is_mpi_test_) {
       for (size_t i = 0; i < vector_size; ++i) {
         data[i] = static_cast<double>((rank + 1) * 100.0 + i);
       }
     } else {
       for (size_t i = 0; i < vector_size; ++i) {
-        data[i] = static_cast<double>(100.0 + i);  
+        data[i] = static_cast<double>(100.0 + i);
       }
     }
-    
+
     input_data_ = InTypeVariant{data};
   }
 
@@ -51,7 +50,7 @@ protected:
     return input_data_;
   }
 
-private:
+ private:
   InType input_data_;
   bool is_mpi_test_ = false;
 };

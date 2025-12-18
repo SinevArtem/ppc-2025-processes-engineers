@@ -12,7 +12,6 @@ class SinevAAllreduceSEQ : public BaseTask {
   }
   explicit SinevAAllreduceSEQ(const InType &in);
 
-
  private:
   bool ValidationImpl() override;
   bool PreProcessingImpl() override;
