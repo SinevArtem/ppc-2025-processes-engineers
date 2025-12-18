@@ -73,10 +73,16 @@ int SinevAAllreduce::MPI_Allreduce_custom(const void *sendbuf, void *recvbuf, in
   }
 
   int type_size = getTypeSize(datatype);
-  int total_size = count * type_size;
+  int total_bytes = count * type_size;
 
-  std::vector<char> local_buffer(total_size);
-  std::memcpy(local_buffer.data(), sendbuf, total_size);
+  std::vector<char> local_buffer(total_bytes);
+
+  // Копируем входные данные
+  if (sendbuf == MPI_IN_PLACE) {
+    std::memcpy(local_buffer.data(), recvbuf, total_bytes);
+  } else {
+    std::memcpy(local_buffer.data(), sendbuf, total_bytes);
+  }
 
   int mask = 1;
   while (mask < size) {
@@ -84,11 +90,12 @@ int SinevAAllreduce::MPI_Allreduce_custom(const void *sendbuf, void *recvbuf, in
 
     if (partner < size) {
       if ((rank & mask) == 0) {
-        std::vector<char> recv_buffer(total_size);
-        MPI_Recv(recv_buffer.data(), total_size, MPI_BYTE, partner, 0, comm, MPI_STATUS_IGNORE);
+        std::vector<char> recv_buffer(total_bytes);
+        MPI_Recv(recv_buffer.data(), total_bytes, MPI_BYTE, partner, 0, comm, MPI_STATUS_IGNORE);
+
         performOperation(local_buffer.data(), recv_buffer.data(), count, datatype, op);
       } else {
-        MPI_Send(local_buffer.data(), total_size, MPI_BYTE, partner, 0, comm);
+        MPI_Send(local_buffer.data(), total_bytes, MPI_BYTE, partner, 0, comm);
         break;
       }
     }
@@ -96,10 +103,10 @@ int SinevAAllreduce::MPI_Allreduce_custom(const void *sendbuf, void *recvbuf, in
   }
 
   if (rank == 0) {
-    std::memcpy(recvbuf, local_buffer.data(), total_size);
+    std::memcpy(recvbuf, local_buffer.data(), total_bytes);
 
     for (int i = 1; i < size; i++) {
-      MPI_Send(local_buffer.data(), count, datatype, i, 1, comm);
+      MPI_Send(recvbuf, count, datatype, i, 1, comm);
     }
   } else {
     MPI_Recv(recvbuf, count, datatype, 0, 1, comm, MPI_STATUS_IGNORE);
