@@ -1,10 +1,9 @@
 #include "sinev_a_allreduce/seq/include/ops_seq.hpp"
 
 #include <exception>
-#include <vector>
 
 #include "sinev_a_allreduce/common/include/common.hpp"
-#include "util/include/util.hpp"
+// #include "util/include/util.hpp"
 
 namespace sinev_a_allreduce {
 

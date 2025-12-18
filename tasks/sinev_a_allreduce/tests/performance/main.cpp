@@ -1,13 +1,10 @@
 #include <gtest/gtest.h>
 #include <mpi.h>
 
-#include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <random>
 #include <string>
 #include <tuple>
-#include <variant>
 #include <vector>
 
 #include "sinev_a_allreduce/common/include/common.hpp"
@@ -35,7 +32,7 @@ class SinevAAllreducePerfTests : public ppc::util::BaseRunPerfTests<InType, OutT
 
     if (is_mpi_test_) {
       for (size_t i = 0; i < vector_size; ++i) {
-        data[i] = static_cast<double>((rank + 1) * 100.0 + i);
+        data[i] = static_cast<double>(((rank + 1) * 100.0) + static_cast<double>(i));
       }
     } else {
       for (size_t i = 0; i < vector_size; ++i) {

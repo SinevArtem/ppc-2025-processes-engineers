@@ -8,7 +8,7 @@
 #include <vector>
 
 #include "sinev_a_allreduce/common/include/common.hpp"
-#include "util/include/util.hpp"
+// #include "util/include/util.hpp"
 
 namespace sinev_a_allreduce {
 
@@ -43,7 +43,7 @@ int SinevAAllreduce::GetTypeSize(MPI_Datatype datatype) {
 
 namespace {
 template <typename T>
-void performSumTemplate(T *out, const T *in, int count) {
+void PerformSumTemplate(T *out, const T *in, int count) {
   for (int i = 0; i < count; i++) {
     out[i] += in[i];
   }
@@ -56,11 +56,11 @@ void SinevAAllreduce::PerformOperation(void *inout, const void *in, int count, M
   }
 
   if (datatype == MPI_INT) {
-    performSumTemplate(static_cast<int *>(inout), static_cast<const int *>(in), count);
+    PerformSumTemplate(static_cast<int *>(inout), static_cast<const int *>(in), count);
   } else if (datatype == MPI_FLOAT) {
-    performSumTemplate(static_cast<float *>(inout), static_cast<const float *>(in), count);
+    PerformSumTemplate(static_cast<float *>(inout), static_cast<const float *>(in), count);
   } else if (datatype == MPI_DOUBLE) {
-    performSumTemplate(static_cast<double *>(inout), static_cast<const double *>(in), count);
+    PerformSumTemplate(static_cast<double *>(inout), static_cast<const double *>(in), count);
   }
 }
 

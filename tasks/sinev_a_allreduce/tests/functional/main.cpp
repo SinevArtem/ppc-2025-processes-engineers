@@ -50,13 +50,13 @@ class SinevAAllreduceFuncTests : public ppc::util::BaseRunFuncTests<InType, OutT
     } else if (data_type == "float") {
       std::vector<float> vec(vector_size);
       for (int i = 0; i < vector_size; i++) {
-        vec[i] = static_cast<float>((rank + 1) * 100.0F + i);
+        vec[i] = static_cast<float>((rank + 1) * 100.0F + static_cast<float>(i));
       }
       input_data_ = vec;
     } else if (data_type == "double") {
       std::vector<double> vec(vector_size);
       for (int i = 0; i < vector_size; i++) {
-        vec[i] = static_cast<double>((rank + 1) * 100.0 + i);
+        vec[i] = static_cast<double>((rank + 1) * 100.0 + static_cast<double>(i));
       }
       input_data_ = vec;
     }
@@ -68,7 +68,7 @@ class SinevAAllreduceFuncTests : public ppc::util::BaseRunFuncTests<InType, OutT
         int world_size = 1;
         int mpi_init = 0;
         MPI_Initialized(&mpi_init);
-        if (mpi_init) {
+        if (mpi_init != 0) {
           MPI_Comm_size(MPI_COMM_WORLD, &world_size);
         }
 
@@ -85,7 +85,7 @@ class SinevAAllreduceFuncTests : public ppc::util::BaseRunFuncTests<InType, OutT
           }
 
           for (size_t i = 0; i < vec.size(); i++) {
-            int expected = total_sum * 100 + static_cast<int>(i) * world_size;
+            int expected = (total_sum * 100) + (static_cast<int>(i) * world_size);
             if (vec[i] != expected) {
               return false;
             }
@@ -101,8 +101,9 @@ class SinevAAllreduceFuncTests : public ppc::util::BaseRunFuncTests<InType, OutT
           }
 
           for (size_t i = 0; i < vec.size(); i++) {
-            float expected = static_cast<float>(static_cast<float>(total_sum) * 100.0F +
-                                                static_cast<float>(i) * static_cast<float>(world_size));
+            auto expected = static_cast<float>((static_cast<float>(total_sum) * 100.0F) +
+                                               (static_cast<float>(i) * static_cast<float>(world_size)));
+
             if (std::fabs(vec[i] - expected) > 1e-6F) {
               return false;
             }
@@ -118,8 +119,8 @@ class SinevAAllreduceFuncTests : public ppc::util::BaseRunFuncTests<InType, OutT
           }
 
           for (size_t i = 0; i < vec.size(); i++) {
-            auto expected = static_cast<float>(static_cast<float>(total_sum) * 100.0F +
-                                               static_cast<float>(i) * static_cast<float>(world_size));
+            auto expected = static_cast<double>((static_cast<double>(total_sum) * 100.0) +
+                                                (static_cast<double>(i) * static_cast<double>(world_size)));
             if (std::fabs(vec[i] - expected) > 1e-9) {
               return false;
             }
