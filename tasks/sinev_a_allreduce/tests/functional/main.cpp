@@ -2,11 +2,11 @@
 #include <mpi.h>
 
 #include <array>
-#include <cmath>      
-#include <cstddef>    
+#include <cmath>
+#include <cstddef>
 #include <string>
 #include <tuple>
-#include <variant>    
+#include <variant>
 #include <vector>
 
 #include "sinev_a_allreduce/common/include/common.hpp"
@@ -101,8 +101,8 @@ class SinevAAllreduceFuncTests : public ppc::util::BaseRunFuncTests<InType, OutT
           }
 
           for (size_t i = 0; i < vec.size(); i++) {
-            float expected = static_cast<float>(static_cast<float>(total_sum) * 100.0F + 
-                  static_cast<float>(i) * static_cast<float>(world_size));
+            float expected = static_cast<float>(static_cast<float>(total_sum) * 100.0F +
+                                                static_cast<float>(i) * static_cast<float>(world_size));
             if (std::fabs(vec[i] - expected) > 1e-6F) {
               return false;
             }
@@ -118,8 +118,8 @@ class SinevAAllreduceFuncTests : public ppc::util::BaseRunFuncTests<InType, OutT
           }
 
           for (size_t i = 0; i < vec.size(); i++) {
-            auto expected = static_cast<float>(static_cast<float>(total_sum) * 100.0F + 
-                static_cast<float>(i) * static_cast<float>(world_size));
+            auto expected = static_cast<float>(static_cast<float>(total_sum) * 100.0F +
+                                               static_cast<float>(i) * static_cast<float>(world_size));
             if (std::fabs(vec[i] - expected) > 1e-9) {
               return false;
             }

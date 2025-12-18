@@ -1,6 +1,7 @@
 #include "sinev_a_allreduce/mpi/include/ops_mpi.hpp"
 
 #include <mpi.h>
+
 #include <cstddef>
 #include <cstring>
 #include <variant>
@@ -48,7 +49,6 @@ void performSumTemplate(T *out, const T *in, int count) {
   }
 }
 }  // namespace
-
 
 void SinevAAllreduce::PerformOperation(void *inout, const void *in, int count, MPI_Datatype datatype, MPI_Op op) {
   if (op != MPI_SUM) {
