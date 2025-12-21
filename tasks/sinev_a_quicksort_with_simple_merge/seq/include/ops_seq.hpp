@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 #include "sinev_a_quicksort_with_simple_merge/common/include/common.hpp"
 #include "task/include/task.hpp"
 

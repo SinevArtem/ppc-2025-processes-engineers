@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 #include "sinev_a_quicksort_with_simple_merge/common/include/common.hpp"
 #include "task/include/task.hpp"
 
@@ -28,7 +30,7 @@ class SinevAQuicksortWithSimpleMergeMPI : public BaseTask {
   struct DistributionInfo {
     std::vector<int> send_counts;
     std::vector<int> displacements;
-    int local_size;
+    int local_size = 0;
   };
 
   DistributionInfo PrepareDistributionInfo(int total_size, int world_size, int world_rank);

@@ -1,16 +1,10 @@
 #include <gtest/gtest.h>
-#include <mpi.h>
 #include <stb/stb_image.h>
 
 #include <algorithm>
 #include <array>
-#include <cstddef>
-#include <cstdint>
-#include <numeric>
-#include <stdexcept>
 #include <string>
 #include <tuple>
-#include <utility>
 #include <vector>
 
 #include "sinev_a_quicksort_with_simple_merge/common/include/common.hpp"
@@ -112,8 +106,8 @@ class SinevAQuicksortWithSimpleMergeFuncTests : public ppc::util::BaseRunFuncTes
     std::vector<int> sorted_input = input_data_;
     std::vector<int> sorted_output = output_data;
 
-    std::sort(sorted_input.begin(), sorted_input.end());
-    std::sort(sorted_output.begin(), sorted_output.end());
+    std::ranges::sort(sorted_input);
+    std::ranges::sort(sorted_output);
 
     return sorted_input == sorted_output;
   }

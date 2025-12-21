@@ -1,10 +1,10 @@
 #include "sinev_a_quicksort_with_simple_merge/seq/include/ops_seq.hpp"
 
-#include <numeric>
+#include <algorithm>
 #include <vector>
 
 #include "sinev_a_quicksort_with_simple_merge/common/include/common.hpp"
-#include "util/include/util.hpp"
+// #include "util/include/util.hpp"
 
 namespace sinev_a_quicksort_with_simple_merge {
 
@@ -27,7 +27,7 @@ bool SinevAQuicksortWithSimpleMergeSEQ::PreProcessingImpl() {
 }
 
 int SinevAQuicksortWithSimpleMergeSEQ::Partition(std::vector<int> &arr, int left, int right) {
-  int pivot_index = left + (right - left) / 2;
+  int pivot_index = left + ((right - left) / 2);
   int pivot_value = arr[pivot_index];
 
   std::swap(arr[pivot_index], arr[left]);

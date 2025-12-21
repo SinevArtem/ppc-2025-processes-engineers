@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <cstddef>
 #include <random>
 
 #include "sinev_a_quicksort_with_simple_merge/common/include/common.hpp"
@@ -31,7 +32,7 @@ class SinevAQuicksortWithSimpleMergePerfTests : public ppc::util::BaseRunPerfTes
 
     // Добавляем дубликаты
     for (int i = 1; i <= 100; i++) {
-      input_data_[size / 4 + i] = 777777;
+      input_data_[(size / 4) + i] = 777777;
     }
   }
 

@@ -2,10 +2,11 @@
 
 #include <mpi.h>
 
+#include <algorithm>
 #include <vector>
 
 #include "sinev_a_quicksort_with_simple_merge/common/include/common.hpp"
-#include "util/include/util.hpp"
+// #include "util/include/util.hpp"
 
 namespace sinev_a_quicksort_with_simple_merge {
 
@@ -16,7 +17,7 @@ SinevAQuicksortWithSimpleMergeMPI::SinevAQuicksortWithSimpleMergeMPI(const InTyp
 }
 
 bool SinevAQuicksortWithSimpleMergeMPI::ValidationImpl() {
-  int rank;
+  int rank = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
   if (rank == 0) {
@@ -29,7 +30,7 @@ bool SinevAQuicksortWithSimpleMergeMPI::ValidationImpl() {
 }
 
 bool SinevAQuicksortWithSimpleMergeMPI::PreProcessingImpl() {
-  int rank;
+  int rank = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
   if (rank == 0) {
@@ -39,7 +40,7 @@ bool SinevAQuicksortWithSimpleMergeMPI::PreProcessingImpl() {
 }
 
 int SinevAQuicksortWithSimpleMergeMPI::Partition(std::vector<int> &arr, int left, int right) {
-  int pivot_index = left + (right - left) / 2;
+  int pivot_index = left + ((right - left) / 2);
   int pivot_value = arr[pivot_index];
 
   std::swap(arr[pivot_index], arr[left]);
@@ -123,7 +124,6 @@ SinevAQuicksortWithSimpleMergeMPI::DistributionInfo SinevAQuicksortWithSimpleMer
 
   info.local_size = base_size + (world_rank < remainder ? 1 : 0);
 
-  // Инициализируем на всех процессах (MPI требует этого)
   info.send_counts.assign(world_size, 0);
   info.displacements.assign(world_size, 0);
 
@@ -159,7 +159,8 @@ std::vector<int> SinevAQuicksortWithSimpleMergeMPI::DistributeData(int world_siz
 }
 
 void SinevAQuicksortWithSimpleMergeMPI::ParallelQuickSort() {
-  int world_size, world_rank;
+  int world_size = 0;
+  int world_rank = 0;
   MPI_Comm_size(MPI_COMM_WORLD, &world_size);
   MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
