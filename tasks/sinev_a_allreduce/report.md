@@ -1,4 +1,4 @@
-# Минимальное значение элементов вектора
+# Передача от всех одному и рассылка (allreduce)
 
 - Студент: Синев Артём Александрович, группа 3823Б1ПР2
 - Технологии: SEQ, MPI
@@ -124,7 +124,7 @@ if ((rank & mask) == 0) {       // Определение роли: получа
 **Основная функция MPI_Allreduce_custom:**
 
 ```cpp
-int SinevAAllreduce::MPI_Allreduce_custom(const void *sendbuf, void *recvbuf, 
+int SinevAAllreduce::MpiAllreduceCustom(const void *sendbuf, void *recvbuf, 
                                          int count, MPI_Datatype datatype,
                                          MPI_Op op, MPI_Comm comm) {
   int rank, size;
@@ -133,17 +133,24 @@ int SinevAAllreduce::MPI_Allreduce_custom(const void *sendbuf, void *recvbuf,
   
   // Специальный случай: один процесс
   if (size == 1) {
-    int type_size = getTypeSize(datatype);
-    std::memcpy(recvbuf, sendbuf, count * type_size);
+    int type_size = GetTypeSize(datatype);
+    size_t total_size = static_cast<size_t>(count) * static_cast<size_t>(type_size);
+    std::memcpy(recvbuf, sendbuf, total_size);
     return 0;
   }
   
-  int type_size = getTypeSize(datatype);
+  int type_size = GetTypeSize(datatype);
   int total_bytes = count * type_size;
   
   // Локальный буфер для данных
   std::vector<char> local_buffer(total_bytes);
-  std::memcpy(local_buffer.data(), sendbuf, total_bytes);
+  
+  // Копируем входные данные
+  if (sendbuf == MPI_IN_PLACE) {
+    std::memcpy(local_buffer.data(), recvbuf, total_bytes);
+  } else {
+    std::memcpy(local_buffer.data(), sendbuf, total_bytes);
+  }
   
   // === ФАЗА 1: РЕДУКЦИЯ (двоичное дерево) ===
   int mask = 1;
@@ -156,7 +163,7 @@ int SinevAAllreduce::MPI_Allreduce_custom(const void *sendbuf, void *recvbuf,
         std::vector<char> recv_buffer(total_bytes);
         MPI_Recv(recv_buffer.data(), total_bytes, MPI_BYTE, 
                 partner, 0, comm, MPI_STATUS_IGNORE);
-        performOperation(local_buffer.data(), recv_buffer.data(), 
+        PerformOperation(local_buffer.data(), recv_buffer.data(), 
                         count, datatype, op);
       } else {
         // Этот процесс отправляет и завершает фазу редукции
@@ -168,14 +175,24 @@ int SinevAAllreduce::MPI_Allreduce_custom(const void *sendbuf, void *recvbuf,
     mask <<= 1;
   }
   
-  // === ФАЗА 2: РАССЫЛКА ===
+  // === ФАЗА 2: РАССЫЛКА (двоичное дерево) ===
   if (rank == 0) {
     std::memcpy(recvbuf, local_buffer.data(), total_bytes);
-    for (int i = 1; i < size; i++) {
-      MPI_Send(recvbuf, count, datatype, i, 1, comm);
+  }
+  
+  // Используем двоичное дерево для рассылки
+  mask = size / 2;
+  while (mask > 0) {
+    if (rank < mask) {
+      int dest = rank + mask;
+      if (dest < size) {
+        MPI_Send(recvbuf, count, datatype, dest, 1, comm);
+      }
+    } else if (rank < 2 * mask) {
+      int source = rank - mask;
+      MPI_Recv(recvbuf, count, datatype, source, 1, comm, MPI_STATUS_IGNORE);
     }
-  } else {
-    MPI_Recv(recvbuf, count, datatype, 0, 1, comm, MPI_STATUS_IGNORE);
+    mask >>= 1;
   }
   
   return 0;
@@ -239,7 +256,7 @@ void performSumTemplate(T *out, const T *in, int count) {
 ### 6.3 Тестовое окружение
 
 ```bash
-PPC_NUM_PROC=1,2,4
+PPC_NUM_PROC=1,2,4,7,8
 ```
 
 ## 7. Результаты
@@ -260,23 +277,21 @@ PPC_NUM_PROC=1,2,4
 |--------|---------------------|----------------|
 | SEQ    | 1                   | 	0.0041      |
 | MPI    | 1                   | 	0.0041      | 
-| MPI    | 2                   | 	0.0828      |
-| MPI    | 4                   | 0.1504         |
+| MPI    | 2                   | 	0.0782      |
+| MPI    | 4                   | 0.1381       |
+| MPI    | 7                   | 	0.2008      | 
+| MPI    | 8                   | 	0.2208      |
 
 **Ускорение относительно SEQ версии:**
 
 | Количество процессов | Ускорение | Эффективность |
 |---------------------|-----------|---------------|
 | 1                   | 1.00×     | 100%           |
-| 2                   | 0.05×     | 2.5%           |
-| 4                   | 0.03×     | 0.7%           |
+| 2                   | 0.052×     | 2.6%           |
+| 4                   | 0.030×     | 0.75%           |
+| 7                   | 0.020×     | 0.29%           |
+| 8                   | 0.019×     | 0.24%          |
 
-
-**Анализ результатов:**
-
-- SEQ и MPI (1 процесс): Идентичное время выполнения (0.0041 с)
-- MPI (2 процесса): Время увеличивается в 20 раз (0.0828 с)
-- MPI (4 процесса): Время увеличивается в 37 раз (0.1504 с)
 
 **Формула ускорения:** Ускорение = Время SEQ / Время MPI
 
@@ -284,7 +299,10 @@ PPC_NUM_PROC=1,2,4
 
 ### 7.3. Анализ эффективности
 
+- **Масштабируемость**: Производительность продолжает линейно ухудшаться с увеличением числа процессов
+
 **Ожидаемое поведение vs Фактическое:**
+
 
     Ожидалось: Ускорение с увеличением числа процессов
 
@@ -374,7 +392,6 @@ PPC_NUM_PROC=1,2,4
 #include <vector>
 
 #include "sinev_a_allreduce/common/include/common.hpp"
-// #include "util/include/util.hpp"
 
 namespace sinev_a_allreduce {
 
@@ -456,6 +473,7 @@ int SinevAAllreduce::MpiAllreduceCustom(const void *sendbuf, void *recvbuf, int 
     std::memcpy(local_buffer.data(), sendbuf, total_bytes);
   }
 
+  // === ФАЗА 1: РЕДУКЦИЯ (двоичное дерево снизу вверх) ===
   int mask = 1;
   while (mask < size) {
     int partner = rank ^ mask;
@@ -464,7 +482,6 @@ int SinevAAllreduce::MpiAllreduceCustom(const void *sendbuf, void *recvbuf, int 
       if ((rank & mask) == 0) {
         std::vector<char> recv_buffer(total_bytes);
         MPI_Recv(recv_buffer.data(), total_bytes, MPI_BYTE, partner, 0, comm, MPI_STATUS_IGNORE);
-
         PerformOperation(local_buffer.data(), recv_buffer.data(), count, datatype, op);
       } else {
         MPI_Send(local_buffer.data(), total_bytes, MPI_BYTE, partner, 0, comm);
@@ -474,14 +491,23 @@ int SinevAAllreduce::MpiAllreduceCustom(const void *sendbuf, void *recvbuf, int 
     mask <<= 1;
   }
 
+  // === ФАЗА 2: РАССЫЛКА (двоичное дерево сверху вниз) ===
   if (rank == 0) {
     std::memcpy(recvbuf, local_buffer.data(), total_bytes);
+  }
 
-    for (int i = 1; i < size; i++) {
-      MPI_Send(recvbuf, count, datatype, i, 1, comm);
+  mask = size / 2;
+  while (mask > 0) {
+    if (rank < mask) {
+      int dest = rank + mask;
+      if (dest < size) {
+        MPI_Send(recvbuf, count, datatype, dest, 1, comm);
+      }
+    } else if (rank < 2 * mask) {
+      int source = rank - mask;
+      MPI_Recv(recvbuf, count, datatype, source, 1, comm, MPI_STATUS_IGNORE);
     }
-  } else {
-    MPI_Recv(recvbuf, count, datatype, 0, 1, comm, MPI_STATUS_IGNORE);
+    mask >>= 1;
   }
 
   return 0;
@@ -536,5 +562,4 @@ bool SinevAAllreduce::PostProcessingImpl() {
 }
 
 }  // namespace sinev_a_allreduce
-
 ```

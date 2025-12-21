@@ -98,9 +98,9 @@ int SinevAAllreduce::MpiAllreduceCustom(const void *sendbuf, void *recvbuf, int 
       if ((rank & mask) == 0) {
         std::vector<char> recv_buffer(total_bytes);
         MPI_Recv(recv_buffer.data(), total_bytes, MPI_BYTE, partner, 0, comm, MPI_STATUS_IGNORE);
-
         PerformOperation(local_buffer.data(), recv_buffer.data(), count, datatype, op);
       } else {
+        // Отправитель: отправляет данные и завершает свою часть редукции
         MPI_Send(local_buffer.data(), total_bytes, MPI_BYTE, partner, 0, comm);
         break;
       }
@@ -110,12 +110,20 @@ int SinevAAllreduce::MpiAllreduceCustom(const void *sendbuf, void *recvbuf, int 
 
   if (rank == 0) {
     std::memcpy(recvbuf, local_buffer.data(), total_bytes);
+  }
 
-    for (int i = 1; i < size; i++) {
-      MPI_Send(recvbuf, count, datatype, i, 1, comm);
+  mask = size / 2;
+  while (mask > 0) {
+    if (rank < mask) {
+      int dest = rank + mask;
+      if (dest < size) {
+        MPI_Send(recvbuf, count, datatype, dest, 1, comm);
+      }
+    } else if (rank < 2 * mask) {
+      int source = rank - mask;
+      MPI_Recv(recvbuf, count, datatype, source, 1, comm, MPI_STATUS_IGNORE);
     }
-  } else {
-    MPI_Recv(recvbuf, count, datatype, 0, 1, comm, MPI_STATUS_IGNORE);
+    mask >>= 1;
   }
 
   return 0;
