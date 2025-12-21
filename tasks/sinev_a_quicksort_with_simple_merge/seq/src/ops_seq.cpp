@@ -14,10 +14,10 @@ SinevAQuicksortWithSimpleMergeSEQ::SinevAQuicksortWithSimpleMergeSEQ(const InTyp
   GetOutput().resize(in.size());
 }
 
-
-
 bool SinevAQuicksortWithSimpleMergeSEQ::ValidationImpl() {
-  if (GetInput().empty()) return false;
+  if (GetInput().empty()) {
+    return false;
+  }
   return true;
 }
 
@@ -26,7 +26,7 @@ bool SinevAQuicksortWithSimpleMergeSEQ::PreProcessingImpl() {
   return true;
 }
 
-int SinevAQuicksortWithSimpleMergeSEQ::Partition(std::vector<int>& arr, int left, int right) {
+int SinevAQuicksortWithSimpleMergeSEQ::Partition(std::vector<int> &arr, int left, int right) {
   int pivot_index = left + (right - left) / 2;
   int pivot_value = arr[pivot_index];
 
@@ -39,7 +39,7 @@ int SinevAQuicksortWithSimpleMergeSEQ::Partition(std::vector<int>& arr, int left
     while (i <= j && arr[i] <= pivot_value) {
       i++;
     }
-    
+
     while (i <= j && arr[j] > pivot_value) {
       j--;
     }
@@ -48,8 +48,7 @@ int SinevAQuicksortWithSimpleMergeSEQ::Partition(std::vector<int>& arr, int left
       std::swap(arr[i], arr[j]);
       i++;
       j--;
-    }
-    else {
+    } else {
       break;
     }
   }
@@ -59,11 +58,11 @@ int SinevAQuicksortWithSimpleMergeSEQ::Partition(std::vector<int>& arr, int left
   return j;
 }
 
-void SinevAQuicksortWithSimpleMergeSEQ::SimpleMerge(std::vector<int>& arr, int left, int mid, int right) {
+void SinevAQuicksortWithSimpleMergeSEQ::SimpleMerge(std::vector<int> &arr, int left, int mid, int right) {
   std::vector<int> temp(right - left + 1);
 
-  int i = left;     
-  int j = mid + 1;   
+  int i = left;
+  int j = mid + 1;
   int k = 0;  // Индекс для временного массива
 
   while (i <= mid && j <= right) {
@@ -94,8 +93,8 @@ void SinevAQuicksortWithSimpleMergeSEQ::SimpleMerge(std::vector<int>& arr, int l
   }
 }
 
-void SinevAQuicksortWithSimpleMergeSEQ::QuickSortWithSimpleMerge(std::vector<int>& arr, int left, int right) {
-  if (left>=right) {
+void SinevAQuicksortWithSimpleMergeSEQ::QuickSortWithSimpleMerge(std::vector<int> &arr, int left, int right) {
+  if (left >= right) {
     return;
   }
 
@@ -103,10 +102,9 @@ void SinevAQuicksortWithSimpleMergeSEQ::QuickSortWithSimpleMerge(std::vector<int
 
   QuickSortWithSimpleMerge(arr, left, pivot_index - 1);
 
-  QuickSortWithSimpleMerge(arr, pivot_index+1, right);
+  QuickSortWithSimpleMerge(arr, pivot_index + 1, right);
 
   SimpleMerge(arr, left, pivot_index, right);
-
 }
 
 bool SinevAQuicksortWithSimpleMergeSEQ::RunImpl() {

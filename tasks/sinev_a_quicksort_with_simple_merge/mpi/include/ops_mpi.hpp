@@ -18,13 +18,12 @@ class SinevAQuicksortWithSimpleMergeMPI : public BaseTask {
   bool RunImpl() override;
   bool PostProcessingImpl() override;
 
-  int Partition(std::vector<int>& arr, int left, int right);
-  void SimpleMerge(std::vector<int>& arr, int left, int mid, int right);
-  void QuickSortWithSimpleMerge(std::vector<int>& arr, int left, int right);
+  int Partition(std::vector<int> &arr, int left, int right);
+  void SimpleMerge(std::vector<int> &arr, int left, int mid, int right);
+  void QuickSortWithSimpleMerge(std::vector<int> &arr, int left, int right);
 
   void ParallelQuickSort();
   std::vector<int> DistributeData(int world_size, int world_rank);
-  
 
   struct DistributionInfo {
     std::vector<int> send_counts;
@@ -33,7 +32,6 @@ class SinevAQuicksortWithSimpleMergeMPI : public BaseTask {
   };
 
   DistributionInfo PrepareDistributionInfo(int total_size, int world_size, int world_rank);
-
 };
 
 }  // namespace sinev_a_quicksort_with_simple_merge

@@ -13,22 +13,22 @@ class SinevAQuicksortWithSimpleMergePerfTests : public ppc::util::BaseRunPerfTes
   InType input_data_;
 
   void SetUp() override {
-    int size = 100000;  
+    int size = 100000;
     input_data_.resize(size);
-    
+
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<int> dist(1, 1000000);
-    
+
     for (int i = 0; i < size; i++) {
       input_data_[i] = dist(gen);
     }
-    
+
     // Добавляем несколько специальных значений
     input_data_[0] = -500000;
     input_data_[size - 1] = 1500000;
     input_data_[size / 2] = 0;
-    
+
     // Добавляем дубликаты
     for (int i = 1; i <= 100; i++) {
       input_data_[size / 4 + i] = 777777;
@@ -39,13 +39,13 @@ class SinevAQuicksortWithSimpleMergePerfTests : public ppc::util::BaseRunPerfTes
     if (output_data.size() != input_data_.size()) {
       return false;
     }
-    
+
     for (size_t i = 1; i < output_data.size(); i++) {
       if (output_data[i] < output_data[i - 1]) {
         return false;
       }
     }
-    
+
     return true;
   }
 
@@ -59,7 +59,8 @@ TEST_P(SinevAQuicksortWithSimpleMergePerfTests, RunPerfModes) {
 }
 
 const auto kAllPerfTasks =
-    ppc::util::MakeAllPerfTasks<InType, SinevAQuicksortWithSimpleMergeMPI, SinevAQuicksortWithSimpleMergeSEQ>(PPC_SETTINGS_sinev_a_quicksort_with_simple_merge);
+    ppc::util::MakeAllPerfTasks<InType, SinevAQuicksortWithSimpleMergeMPI, SinevAQuicksortWithSimpleMergeSEQ>(
+        PPC_SETTINGS_sinev_a_quicksort_with_simple_merge);
 
 const auto kGtestValues = ppc::util::TupleToGTestValues(kAllPerfTasks);
 

@@ -18,10 +18,9 @@ class SinevAQuicksortWithSimpleMergeSEQ : public BaseTask {
   bool RunImpl() override;
   bool PostProcessingImpl() override;
 
-  void QuickSortWithSimpleMerge(std::vector<int>& arr, int left, int right);
-  int Partition(std::vector<int>& arr, int left, int right);
-  void SimpleMerge(std::vector<int>& arr, int left, int mid, int right);
- 
+  void QuickSortWithSimpleMerge(std::vector<int> &arr, int left, int right);
+  int Partition(std::vector<int> &arr, int left, int right);
+  void SimpleMerge(std::vector<int> &arr, int left, int mid, int right);
 };
 
 }  // namespace sinev_a_quicksort_with_simple_merge
