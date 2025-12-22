@@ -102,7 +102,8 @@ void SinevAQuicksortWithSimpleMergeMPI::SimpleMerge(std::vector<int> &arr, int l
   }
 }
 
-void SinevAQuicksortWithSimpleMergeMPI::QuickSortWithSimpleMerge(std::vector<int> &arr, int left, int right) {
+void SinevAQuicksortWithSimpleMergeMPI::QuickSortWithSimpleMerge(std::vector<int> &arr, int left,
+                                                                 int right) {  // NOLINT
   if (left >= right) {
     return;
   }
