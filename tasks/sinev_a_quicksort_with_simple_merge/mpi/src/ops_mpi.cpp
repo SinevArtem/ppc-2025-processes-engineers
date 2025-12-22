@@ -3,6 +3,7 @@
 #include <mpi.h>
 
 #include <algorithm>
+#include <stack>
 #include <vector>
 
 #include "sinev_a_quicksort_with_simple_merge/common/include/common.hpp"
@@ -102,18 +103,55 @@ void SinevAQuicksortWithSimpleMergeMPI::SimpleMerge(std::vector<int> &arr, int l
   }
 }
 
-void SinevAQuicksortWithSimpleMergeMPI::QuickSortWithSimpleMerge(std::vector<int> &arr, int left,
-                                                                 int right) {  // NOLINT
-  if (left >= right) {
-    return;
+void SinevAQuicksortWithSimpleMergeMPI::QuickSortWithSimpleMerge(std::vector<int> &arr, int left, int right) {
+  // Используем стек для хранения границ подмассивов
+  struct Range {
+    int left;
+    int right;
+  };
+
+  std::stack<Range> stack;
+  stack.push({left, right});
+
+  while (!stack.empty()) {
+    Range current = stack.top();
+    stack.pop();
+
+    int l = current.left;
+    int r = current.right;
+
+    if (l >= r) {
+      continue;
+    }
+
+    // Выполняем разделение
+    int pivot_index = Partition(arr, l, r);
+
+    // Добавляем в стек правую и левую части
+    // Сначала добавляем большую часть для оптимизации использования стека
+    int left_size = pivot_index - l;
+    int right_size = r - pivot_index;
+
+    if (left_size > 1 && right_size > 1) {
+      // Обе части больше 1 элемента
+      if (left_size > right_size) {
+        stack.push({pivot_index + 1, r});  // Сначала правую (меньшую)
+        stack.push({l, pivot_index - 1});  // Потом левую (большую)
+      } else {
+        stack.push({l, pivot_index - 1});  // Сначала левую (меньшую)
+        stack.push({pivot_index + 1, r});  // Потом правую (большую)
+      }
+    } else if (left_size > 1) {
+      // Только левая часть больше 1 элемента
+      stack.push({l, pivot_index - 1});
+    } else if (right_size > 1) {
+      // Только правая часть больше 1 элемента
+      stack.push({pivot_index + 1, r});
+    }
+
+    // Выполняем слияние
+    SimpleMerge(arr, l, pivot_index, r);
   }
-
-  int pivot_index = Partition(arr, left, right);
-
-  QuickSortWithSimpleMerge(arr, left, pivot_index - 1);
-  QuickSortWithSimpleMerge(arr, pivot_index + 1, right);
-
-  SimpleMerge(arr, left, pivot_index, right);
 }
 
 SinevAQuicksortWithSimpleMergeMPI::DistributionInfo SinevAQuicksortWithSimpleMergeMPI::PrepareDistributionInfo(

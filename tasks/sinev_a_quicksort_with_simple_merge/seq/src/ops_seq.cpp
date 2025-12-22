@@ -1,6 +1,7 @@
 #include "sinev_a_quicksort_with_simple_merge/seq/include/ops_seq.hpp"
 
 #include <algorithm>
+#include <stack>
 #include <vector>
 
 #include "sinev_a_quicksort_with_simple_merge/common/include/common.hpp"
@@ -90,19 +91,48 @@ void SinevAQuicksortWithSimpleMergeSEQ::SimpleMerge(std::vector<int> &arr, int l
   }
 }
 
-void SinevAQuicksortWithSimpleMergeSEQ::QuickSortWithSimpleMerge(std::vector<int> &arr, int left,
-                                                                 int right) {  // NOLINT
-  if (left >= right) {
-    return;
+void SinevAQuicksortWithSimpleMergeSEQ::QuickSortWithSimpleMerge(std::vector<int> &arr, int left, int right) {
+  struct Range {
+    int left;
+    int right;
+  };
+
+  std::stack<Range> stack;
+  stack.push({left, right});
+
+  while (!stack.empty()) {
+    Range current = stack.top();
+    stack.pop();
+
+    int l = current.left;
+    int r = current.right;
+
+    if (l >= r) {
+      continue;
+    }
+
+    int pivot_index = Partition(arr, l, r);
+
+    int left_size = pivot_index - l;
+    int right_size = r - pivot_index;
+
+    if (left_size > 1 && right_size > 1) {
+      if (left_size > right_size) {
+        stack.push({pivot_index + 1, r});
+        stack.push({l, pivot_index - 1});
+      } else {
+        stack.push({l, pivot_index - 1});
+        stack.push({pivot_index + 1, r});
+      }
+    } else if (left_size > 1) {
+      stack.push({l, pivot_index - 1});
+    } else if (right_size > 1) {
+      stack.push({pivot_index + 1, r});
+    }
+
+    // Выполняем слияние
+    SimpleMerge(arr, l, pivot_index, r);
   }
-
-  int pivot_index = Partition(arr, left, right);
-
-  QuickSortWithSimpleMerge(arr, left, pivot_index - 1);
-
-  QuickSortWithSimpleMerge(arr, pivot_index + 1, right);
-
-  SimpleMerge(arr, left, pivot_index, right);
 }
 
 bool SinevAQuicksortWithSimpleMergeSEQ::RunImpl() {
