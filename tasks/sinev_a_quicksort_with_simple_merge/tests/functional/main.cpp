@@ -3,11 +3,11 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
+#include <cstdint>
 #include <string>
 #include <tuple>
 #include <vector>
-#include <cstddef>
-#include <cstdint>
 
 #include "sinev_a_quicksort_with_simple_merge/common/include/common.hpp"
 #include "sinev_a_quicksort_with_simple_merge/mpi/include/ops_mpi.hpp"

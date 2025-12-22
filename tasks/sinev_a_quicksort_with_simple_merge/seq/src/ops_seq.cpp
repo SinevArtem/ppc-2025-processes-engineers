@@ -90,7 +90,8 @@ void SinevAQuicksortWithSimpleMergeSEQ::SimpleMerge(std::vector<int> &arr, int l
   }
 }
 
-void SinevAQuicksortWithSimpleMergeSEQ::QuickSortWithSimpleMerge(std::vector<int> &arr, int left, int right) { // NOLINT
+void SinevAQuicksortWithSimpleMergeSEQ::QuickSortWithSimpleMerge(std::vector<int> &arr, int left,
+                                                                 int right) {  // NOLINT
   if (left >= right) {
     return;
   }
