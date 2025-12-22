@@ -64,6 +64,71 @@ void SinevAAllreduce::PerformOperation(void *inout, const void *in, int count, M
   }
 }
 
+namespace {
+
+void PerformReducePhase(int rank, int size, int total_bytes, int count, MPI_Datatype datatype, MPI_Op op, MPI_Comm comm,
+                        std::vector<char> &local_buffer) {
+  int mask = 1;
+  while (mask < size) {
+    int partner = rank ^ mask;
+
+    if (partner < size) {
+      if ((rank & mask) == 0) {
+        std::vector<char> recv_buffer(total_bytes);
+        MPI_Recv(recv_buffer.data(), total_bytes, MPI_BYTE, partner, 0, comm, MPI_STATUS_IGNORE);
+        SinevAAllreduce::PerformOperation(local_buffer.data(), recv_buffer.data(), count, datatype, op);
+      } else {
+        MPI_Send(local_buffer.data(), total_bytes, MPI_BYTE, partner, 0, comm);
+        break;
+      }
+    }
+    mask <<= 1;
+  }
+}
+
+void BroadcastViaBinaryTree(int rank, int size, int count, MPI_Datatype datatype, MPI_Comm comm, void *recvbuf) {
+  int tree_size = 1;
+  while (tree_size < size) {
+    tree_size <<= 1;
+  }
+
+  for (int level = tree_size / 2; level > 0; level >>= 1) {
+    if (rank < level) {
+      int dest = rank + level;
+      if (dest < size) {
+        MPI_Send(recvbuf, count, datatype, dest, 1, comm);
+      }
+    } else if (rank < 2 * level && rank >= level) {
+      int source = rank - level;
+      if (source < size) {
+        MPI_Recv(recvbuf, count, datatype, source, 1, comm, MPI_STATUS_IGNORE);
+      }
+    }
+  }
+}
+
+void BroadcastRemainingProcesses(int rank, int size, int count, MPI_Datatype datatype, MPI_Comm comm, void *recvbuf) {
+  if (size <= 1) {
+    return;
+  }
+
+  for (int step = 1; step < size; step *= 2) {
+    if (rank < step) {
+      int dest = rank + step;
+      if (dest < size && dest >= step) {
+        MPI_Send(recvbuf, count, datatype, dest, 2, comm);
+      }
+    } else if (rank < 2 * step && rank >= step) {
+      int source = rank - step;
+      if (source >= 0) {
+        MPI_Recv(recvbuf, count, datatype, source, 2, comm, MPI_STATUS_IGNORE);
+      }
+    }
+  }
+}
+
+}  // namespace
+
 int SinevAAllreduce::MpiAllreduceCustom(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op,
                                         MPI_Comm comm) {
   int rank = 0;
@@ -83,48 +148,25 @@ int SinevAAllreduce::MpiAllreduceCustom(const void *sendbuf, void *recvbuf, int 
 
   std::vector<char> local_buffer(total_bytes);
 
-  // Копируем входные данные
   if (sendbuf == MPI_IN_PLACE) {
     std::memcpy(local_buffer.data(), recvbuf, total_bytes);
   } else {
     std::memcpy(local_buffer.data(), sendbuf, total_bytes);
   }
 
-  int mask = 1;
-  while (mask < size) {
-    int partner = rank ^ mask;
-
-    if (partner < size) {
-      if ((rank & mask) == 0) {
-        std::vector<char> recv_buffer(total_bytes);
-        MPI_Recv(recv_buffer.data(), total_bytes, MPI_BYTE, partner, 0, comm, MPI_STATUS_IGNORE);
-        PerformOperation(local_buffer.data(), recv_buffer.data(), count, datatype, op);
-      } else {
-        // Отправитель: отправляет данные и завершает свою часть редукции
-        MPI_Send(local_buffer.data(), total_bytes, MPI_BYTE, partner, 0, comm);
-        break;
-      }
-    }
-    mask <<= 1;
-  }
+  PerformReducePhase(rank, size, total_bytes, count, datatype, op, comm, local_buffer);
 
   if (rank == 0) {
     std::memcpy(recvbuf, local_buffer.data(), total_bytes);
   }
 
-  mask = size / 2;
-  while (mask > 0) {
-    if (rank < mask) {
-      int dest = rank + mask;
-      if (dest < size) {
-        MPI_Send(recvbuf, count, datatype, dest, 1, comm);
-      }
-    } else if (rank < 2 * mask) {
-      int source = rank - mask;
-      MPI_Recv(recvbuf, count, datatype, source, 1, comm, MPI_STATUS_IGNORE);
-    }
-    mask >>= 1;
+  if (rank != 0 && sendbuf != MPI_IN_PLACE) {
+    std::memcpy(recvbuf, sendbuf, total_bytes);
   }
+
+  BroadcastViaBinaryTree(rank, size, count, datatype, comm, recvbuf);
+
+  BroadcastRemainingProcesses(rank, size, count, datatype, comm, recvbuf);
 
   return 0;
 }

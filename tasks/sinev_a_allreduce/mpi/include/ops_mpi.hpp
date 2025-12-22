@@ -14,6 +14,8 @@ class SinevAAllreduce : public BaseTask {
   }
   explicit SinevAAllreduce(const InType &in);
 
+  static void PerformOperation(void *inout, const void *in, int count, MPI_Datatype datatype, MPI_Op op);
+
  private:
   bool ValidationImpl() override;
   bool PreProcessingImpl() override;
@@ -22,8 +24,6 @@ class SinevAAllreduce : public BaseTask {
 
   static int MpiAllreduceCustom(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op,
                                 MPI_Comm comm);
-
-  static void PerformOperation(void *inout, const void *in, int count, MPI_Datatype datatype, MPI_Op op);
 
   static int GetTypeSize(MPI_Datatype datatype);
 };

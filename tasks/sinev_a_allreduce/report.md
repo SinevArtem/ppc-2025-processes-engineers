@@ -119,6 +119,22 @@ if ((rank & mask) == 0) {       // Определение роли: получа
 - `RunImpl()` - основной алгоритм
 - `PostProcessingImpl()` - завершающая обработка
 
+## Оптимизация структуры кода
+Для улучшения читаемости и поддержки кода была проведена рефакторизация основной функции MpiAllreduceCustom. Были выделены три самостоятельные функции:
+
+- `PerformReducePhase()` - отвечает за фазу редукции (сбор данных к корню)
+
+- `BroadcastViaBinaryTree()` - выполняет рассылку результата через двоичное дерево
+
+- `BroadcastRemainingProcesses()` - обеспечивает рассылку оставшимся процессам
+
+**Логика разделения**:
+
+- Фаза редукции выделена как самостоятельный процесс, так как она имеет четко определенную цель и алгоритм
+
+- Рассылка разделена на две части для корректной работы с произвольным количеством процессов
+
+
 ## Особенности реализации
 
 **Основная функция MPI_Allreduce_custom:**
@@ -153,49 +169,98 @@ int SinevAAllreduce::MpiAllreduceCustom(const void *sendbuf, void *recvbuf,
   }
   
   // === ФАЗА 1: РЕДУКЦИЯ (двоичное дерево) ===
-  int mask = 1;
-  while (mask < size) {
-    int partner = rank ^ mask;
-    
-    if (partner < size) {
-      if ((rank & mask) == 0) {
-        // Этот процесс получает и суммирует
-        std::vector<char> recv_buffer(total_bytes);
-        MPI_Recv(recv_buffer.data(), total_bytes, MPI_BYTE, 
-                partner, 0, comm, MPI_STATUS_IGNORE);
-        PerformOperation(local_buffer.data(), recv_buffer.data(), 
-                        count, datatype, op);
-      } else {
-        // Этот процесс отправляет и завершает фазу редукции
-        MPI_Send(local_buffer.data(), total_bytes, MPI_BYTE, 
-                partner, 0, comm);
-        break;
-      }
-    }
-    mask <<= 1;
-  }
+  PerformReducePhase(rank, size, total_bytes, count, datatype, op, comm, local_buffer);
   
   // === ФАЗА 2: РАССЫЛКА (двоичное дерево) ===
   if (rank == 0) {
     std::memcpy(recvbuf, local_buffer.data(), total_bytes);
   }
   
-  // Используем двоичное дерево для рассылки
-  mask = size / 2;
-  while (mask > 0) {
-    if (rank < mask) {
-      int dest = rank + mask;
+  if (rank != 0 && sendbuf != MPI_IN_PLACE) {
+    std::memcpy(recvbuf, sendbuf, total_bytes);
+  }
+  
+  // Рассылка через двоичное дерево
+  BroadcastViaBinaryTree(rank, size, count, datatype, comm, recvbuf);
+  
+  // Рассылка оставшимся процессам
+  BroadcastRemainingProcesses(rank, size, count, datatype, comm, recvbuf);
+  
+  return 0;
+}
+```
+
+**Функция редукции:**
+```cpp
+void PerformReducePhase(int rank, int size, int total_bytes, int count,
+                       MPI_Datatype datatype, MPI_Op op, MPI_Comm comm,
+                       std::vector<char>& local_buffer) {
+  int mask = 1;
+  while (mask < size) {
+    int partner = rank ^ mask;
+
+    if (partner < size) {
+      if ((rank & mask) == 0) {
+        std::vector<char> recv_buffer(total_bytes);
+        MPI_Recv(recv_buffer.data(), total_bytes, MPI_BYTE, partner, 0, comm, MPI_STATUS_IGNORE);
+        SinevAAllreduce::PerformOperation(local_buffer.data(), recv_buffer.data(), count, datatype, op);
+      } else {
+        MPI_Send(local_buffer.data(), total_bytes, MPI_BYTE, partner, 0, comm);
+        break;
+      }
+    }
+    mask <<= 1;
+  }
+}
+```
+
+**Функция рассылки через двоичное дерево:**
+
+```cpp
+void BroadcastViaBinaryTree(int rank, int size, int count, 
+                           MPI_Datatype datatype, MPI_Comm comm,
+                           void* recvbuf) {
+  int tree_size = 1;
+  while (tree_size < size) {
+    tree_size <<= 1;
+  }
+  
+  for (int level = tree_size / 2; level > 0; level >>= 1) {
+    if (rank < level) {
+      int dest = rank + level;
       if (dest < size) {
         MPI_Send(recvbuf, count, datatype, dest, 1, comm);
       }
-    } else if (rank < 2 * mask) {
-      int source = rank - mask;
-      MPI_Recv(recvbuf, count, datatype, source, 1, comm, MPI_STATUS_IGNORE);
+    } else if (rank < 2 * level && rank >= level) {
+      int source = rank - level;
+      if (source < size) {
+        MPI_Recv(recvbuf, count, datatype, source, 1, comm, MPI_STATUS_IGNORE);
+      }
     }
-    mask >>= 1;
   }
+}
+```
+
+**Функция рассылки оставшимся процессам:**
+```cpp
+void BroadcastRemainingProcesses(int rank, int size, int count,
+                                MPI_Datatype datatype, MPI_Comm comm,
+                                void* recvbuf) {
+  if (size <= 1) return;
   
-  return 0;
+  for (int step = 1; step < size; step *= 2) {
+    if (rank < step) {
+      int dest = rank + step;
+      if (dest < size && dest >= step) {
+        MPI_Send(recvbuf, count, datatype, dest, 2, comm);
+      }
+    } else if (rank < 2 * step && rank >= step) {
+      int source = rank - step;
+      if (source >= 0) {
+        MPI_Recv(recvbuf, count, datatype, source, 2, comm, MPI_STATUS_IGNORE);
+      }
+    }
+  }
 }
 ```
 
@@ -236,6 +301,7 @@ void performSumTemplate(T *out, const T *in, int count) {
 - **Один процесс**: Простое копирование данных без коммуникации
 - **MPI_IN_PLACE**: Поддержка работы с одним буфером для ввода/вывода
 - **Пустой вектор**: Корректная обработка нулевого размера данных
+- **Произвольное количество процессов:** Рассылка корректно работает для любого числа процессов
 
 ## 6. Экспериментальное окружение
 
@@ -318,6 +384,8 @@ PPC_NUM_PROC=1,2,4,7,8
 
 - **Отсутствие перекрытия:** Вычисления и коммуникации не перекрываются
 
+- **Использование блокирующих операций:** Каждая операция Send/Recv блокирует выполнение
+
 
 ## 8. Выводы
 
@@ -349,12 +417,14 @@ PPC_NUM_PROC=1,2,4,7,8
 - Алгоритм не масштабируется с увеличением числа процессов
 - начительные коммуникационные затраты
 - Отсутствие ускорения при распараллеливании
+- Большой объем данных передается на каждом шаге
 
 **Алгоритмические ограничения:**
 
-- На каждом шаге передаются все данные (80 МБ для теста)
+- На каждом шаге передаются все данные
 - Нет перекрытия вычислений и коммуникаций
 - Используются только блокирующие операции
+- Для произвольного количества процессов требуется дополнительная логика рассылки
 
 **Функциональные ограничения**:
 
@@ -392,6 +462,7 @@ PPC_NUM_PROC=1,2,4,7,8
 #include <vector>
 
 #include "sinev_a_allreduce/common/include/common.hpp"
+// #include "util/include/util.hpp"
 
 namespace sinev_a_allreduce {
 
@@ -447,8 +518,76 @@ void SinevAAllreduce::PerformOperation(void *inout, const void *in, int count, M
   }
 }
 
-int SinevAAllreduce::MpiAllreduceCustom(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op,
-                                        MPI_Comm comm) {
+namespace {
+
+void PerformReducePhase(int rank, int size, int total_bytes, int count,
+                       MPI_Datatype datatype, MPI_Op op, MPI_Comm comm,
+                       std::vector<char>& local_buffer) {
+  int mask = 1;
+  while (mask < size) {
+    int partner = rank ^ mask;
+
+    if (partner < size) {
+      if ((rank & mask) == 0) {
+        std::vector<char> recv_buffer(total_bytes);
+        MPI_Recv(recv_buffer.data(), total_bytes, MPI_BYTE, partner, 0, comm, MPI_STATUS_IGNORE);
+        SinevAAllreduce::PerformOperation(local_buffer.data(), recv_buffer.data(), count, datatype, op);
+      } else {
+        MPI_Send(local_buffer.data(), total_bytes, MPI_BYTE, partner, 0, comm);
+        break;
+      }
+    }
+    mask <<= 1;
+  }
+}
+
+void BroadcastViaBinaryTree(int rank, int size, int count, 
+                           MPI_Datatype datatype, MPI_Comm comm,
+                           void* recvbuf) {
+  int tree_size = 1;
+  while (tree_size < size) {
+    tree_size <<= 1;
+  }
+  
+  for (int level = tree_size / 2; level > 0; level >>= 1) {
+    if (rank < level) {
+      int dest = rank + level;
+      if (dest < size) {
+        MPI_Send(recvbuf, count, datatype, dest, 1, comm);
+      }
+    } else if (rank < 2 * level && rank >= level) {
+      int source = rank - level;
+      if (source < size) {
+        MPI_Recv(recvbuf, count, datatype, source, 1, comm, MPI_STATUS_IGNORE);
+      }
+    }
+  }
+}
+
+void BroadcastRemainingProcesses(int rank, int size, int count,
+                                MPI_Datatype datatype, MPI_Comm comm,
+                                void* recvbuf) {
+  if (size <= 1) return;
+  
+  for (int step = 1; step < size; step *= 2) {
+    if (rank < step) {
+      int dest = rank + step;
+      if (dest < size && dest >= step) {
+        MPI_Send(recvbuf, count, datatype, dest, 2, comm);
+      }
+    } else if (rank < 2 * step && rank >= step) {
+      int source = rank - step;
+      if (source >= 0) {
+        MPI_Recv(recvbuf, count, datatype, source, 2, comm, MPI_STATUS_IGNORE);
+      }
+    }
+  }
+}
+
+}  // namespace
+
+int SinevAAllreduce::MpiAllreduceCustom(const void *sendbuf, void *recvbuf, int count, 
+                                        MPI_Datatype datatype, MPI_Op op, MPI_Comm comm) {
   int rank = 0;
   int size = 0;
   MPI_Comm_rank(comm, &rank);
@@ -466,49 +605,25 @@ int SinevAAllreduce::MpiAllreduceCustom(const void *sendbuf, void *recvbuf, int 
 
   std::vector<char> local_buffer(total_bytes);
 
-  // Копируем входные данные
   if (sendbuf == MPI_IN_PLACE) {
     std::memcpy(local_buffer.data(), recvbuf, total_bytes);
   } else {
     std::memcpy(local_buffer.data(), sendbuf, total_bytes);
   }
 
-  // === ФАЗА 1: РЕДУКЦИЯ (двоичное дерево снизу вверх) ===
-  int mask = 1;
-  while (mask < size) {
-    int partner = rank ^ mask;
+  PerformReducePhase(rank, size, total_bytes, count, datatype, op, comm, local_buffer);
 
-    if (partner < size) {
-      if ((rank & mask) == 0) {
-        std::vector<char> recv_buffer(total_bytes);
-        MPI_Recv(recv_buffer.data(), total_bytes, MPI_BYTE, partner, 0, comm, MPI_STATUS_IGNORE);
-        PerformOperation(local_buffer.data(), recv_buffer.data(), count, datatype, op);
-      } else {
-        MPI_Send(local_buffer.data(), total_bytes, MPI_BYTE, partner, 0, comm);
-        break;
-      }
-    }
-    mask <<= 1;
-  }
-
-  // === ФАЗА 2: РАССЫЛКА (двоичное дерево сверху вниз) ===
   if (rank == 0) {
     std::memcpy(recvbuf, local_buffer.data(), total_bytes);
   }
 
-  mask = size / 2;
-  while (mask > 0) {
-    if (rank < mask) {
-      int dest = rank + mask;
-      if (dest < size) {
-        MPI_Send(recvbuf, count, datatype, dest, 1, comm);
-      }
-    } else if (rank < 2 * mask) {
-      int source = rank - mask;
-      MPI_Recv(recvbuf, count, datatype, source, 1, comm, MPI_STATUS_IGNORE);
-    }
-    mask >>= 1;
+  if (rank != 0 && sendbuf != MPI_IN_PLACE) {
+    std::memcpy(recvbuf, sendbuf, total_bytes);
   }
+
+  BroadcastViaBinaryTree(rank, size, count, datatype, comm, recvbuf);
+
+  BroadcastRemainingProcesses(rank, size, count, datatype, comm, recvbuf);
 
   return 0;
 }
@@ -562,4 +677,5 @@ bool SinevAAllreduce::PostProcessingImpl() {
 }
 
 }  // namespace sinev_a_allreduce
+
 ```
