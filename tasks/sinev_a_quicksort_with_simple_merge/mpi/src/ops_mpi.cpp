@@ -70,7 +70,7 @@ int SinevAQuicksortWithSimpleMergeMPI::Partition(std::vector<int> &arr, int left
   return j;
 }
 
-void SinevAQuicksortWithSimpleMergeMPI::SimpleMerge(std::vector<int> &arr, int left, int mid, int right) {
+void SinevAQuicksortWithSimpleMergeMPI::SimpleMerge(std::vector<int> &arr, int left, int mid, int right) {  // NOLINT
   if (left >= right) {
     return;
   }
