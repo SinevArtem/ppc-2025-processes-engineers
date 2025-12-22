@@ -6,6 +6,8 @@
 #include <string>
 #include <tuple>
 #include <vector>
+#include <cstddef>
+#include <cstdint>
 
 #include "sinev_a_quicksort_with_simple_merge/common/include/common.hpp"
 #include "sinev_a_quicksort_with_simple_merge/mpi/include/ops_mpi.hpp"
@@ -23,7 +25,7 @@ class SinevAQuicksortWithSimpleMergeFuncTests : public ppc::util::BaseRunFuncTes
 
  protected:
   void SetUp() override {
-    TestType params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
+    TestType params = std::get<static_cast<size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
     int test_case = std::get<0>(params);
 
     switch (test_case) {

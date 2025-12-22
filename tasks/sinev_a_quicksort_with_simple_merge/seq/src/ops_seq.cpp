@@ -15,10 +15,7 @@ SinevAQuicksortWithSimpleMergeSEQ::SinevAQuicksortWithSimpleMergeSEQ(const InTyp
 }
 
 bool SinevAQuicksortWithSimpleMergeSEQ::ValidationImpl() {
-  if (GetInput().empty()) {
-    return false;
-  }
-  return true;
+  return !GetInput().empty();
 }
 
 bool SinevAQuicksortWithSimpleMergeSEQ::PreProcessingImpl() {
@@ -93,7 +90,7 @@ void SinevAQuicksortWithSimpleMergeSEQ::SimpleMerge(std::vector<int> &arr, int l
   }
 }
 
-void SinevAQuicksortWithSimpleMergeSEQ::QuickSortWithSimpleMerge(std::vector<int> &arr, int left, int right) {
+void SinevAQuicksortWithSimpleMergeSEQ::QuickSortWithSimpleMerge(std::vector<int> &arr, int left, int right) { // NOLINT
   if (left >= right) {
     return;
   }
