@@ -1,8 +1,9 @@
 #include "sinev_a_quicksort_with_simple_merge/mpi/include/ops_mpi.hpp"
 
 #include <mpi.h>
-#include <stack>
+
 #include <algorithm>
+#include <stack>
 #include <vector>
 
 #include "sinev_a_quicksort_with_simple_merge/common/include/common.hpp"
@@ -107,40 +108,40 @@ void SinevAQuicksortWithSimpleMergeMPI::QuickSortWithSimpleMerge(std::vector<int
     int left;
     int right;
   };
-  
+
   std::stack<Range> stack;
   stack.push({left, right});
-  
+
   while (!stack.empty()) {
     Range current = stack.top();
     stack.pop();
-    
+
     int l = current.left;
     int r = current.right;
-    
+
     if (l >= r) {
       continue;
     }
 
     int pivot_index = Partition(arr, l, r);
-    
+
     int left_size = pivot_index - l;
     int right_size = r - pivot_index;
-    
+
     if (left_size > 1 && right_size > 1) {
       if (left_size > right_size) {
-        stack.push({pivot_index + 1, r});  
-        stack.push({l, pivot_index - 1});  
+        stack.push({pivot_index + 1, r});
+        stack.push({l, pivot_index - 1});
       } else {
-        stack.push({l, pivot_index - 1}); 
-        stack.push({pivot_index + 1, r});  
+        stack.push({l, pivot_index - 1});
+        stack.push({pivot_index + 1, r});
       }
     } else if (left_size > 1) {
       stack.push({l, pivot_index - 1});
     } else if (right_size > 1) {
       stack.push({pivot_index + 1, r});
     }
-    
+
     SimpleMerge(arr, l, pivot_index, r);
   }
 }
