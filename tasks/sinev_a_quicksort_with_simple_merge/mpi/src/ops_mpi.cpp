@@ -1,9 +1,8 @@
 #include "sinev_a_quicksort_with_simple_merge/mpi/include/ops_mpi.hpp"
 
 #include <mpi.h>
-
-#include <algorithm>
 #include <stack>
+#include <algorithm>
 #include <vector>
 
 #include "sinev_a_quicksort_with_simple_merge/common/include/common.hpp"
@@ -104,52 +103,44 @@ void SinevAQuicksortWithSimpleMergeMPI::SimpleMerge(std::vector<int> &arr, int l
 }
 
 void SinevAQuicksortWithSimpleMergeMPI::QuickSortWithSimpleMerge(std::vector<int> &arr, int left, int right) {
-  // Используем стек для хранения границ подмассивов
   struct Range {
     int left;
     int right;
   };
-
+  
   std::stack<Range> stack;
   stack.push({left, right});
-
+  
   while (!stack.empty()) {
     Range current = stack.top();
     stack.pop();
-
+    
     int l = current.left;
     int r = current.right;
-
+    
     if (l >= r) {
       continue;
     }
 
-    // Выполняем разделение
     int pivot_index = Partition(arr, l, r);
-
-    // Добавляем в стек правую и левую части
-    // Сначала добавляем большую часть для оптимизации использования стека
+    
     int left_size = pivot_index - l;
     int right_size = r - pivot_index;
-
+    
     if (left_size > 1 && right_size > 1) {
-      // Обе части больше 1 элемента
       if (left_size > right_size) {
-        stack.push({pivot_index + 1, r});  // Сначала правую (меньшую)
-        stack.push({l, pivot_index - 1});  // Потом левую (большую)
+        stack.push({pivot_index + 1, r});  
+        stack.push({l, pivot_index - 1});  
       } else {
-        stack.push({l, pivot_index - 1});  // Сначала левую (меньшую)
-        stack.push({pivot_index + 1, r});  // Потом правую (большую)
+        stack.push({l, pivot_index - 1}); 
+        stack.push({pivot_index + 1, r});  
       }
     } else if (left_size > 1) {
-      // Только левая часть больше 1 элемента
       stack.push({l, pivot_index - 1});
     } else if (right_size > 1) {
-      // Только правая часть больше 1 элемента
       stack.push({pivot_index + 1, r});
     }
-
-    // Выполняем слияние
+    
     SimpleMerge(arr, l, pivot_index, r);
   }
 }

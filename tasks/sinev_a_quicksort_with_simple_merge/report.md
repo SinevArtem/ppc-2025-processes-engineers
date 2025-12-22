@@ -38,9 +38,10 @@
     - Выбор опорного элемента (pivot) - среднего элемента подмассива
     - Перестановка элементов так, чтобы все элементы ≤ pivot оказались слева, а > pivot - справа
     - Возврат индекса опорного элемента
-2. **Рекурсивная сортировка**:
-   - Рекурсивная сортировка левого подмассива (элементы ≤ pivot)
-   - Рекурсивная сортировка правого подмассива (элементы > pivot)
+2. **Итеративная сортировка с использованием стека**:
+   - Использование явного стека для хранения границ подмассивов
+   - Обработка подмассивов в цикле до опустошения стека
+   - Оптимизация порядка обработки (сначала меньший подмассив)
 3. **Простое слияние (Simple Merge)**:
    - После сортировки обоих подмассивов выполняется их слияние в один отсортированный массив
    - Используется временный буфер для слияния
@@ -48,8 +49,8 @@
 ### Реализация ключевых функций
 
 ```cpp
-// Функция разделения
-int Partition(std::vector<int>& arr, int left, int right) {
+// Статическая функция разделения
+static int Partition(std::vector<int>& arr, int left, int right) {
   int pivot_index = left + (right - left) / 2;
   int pivot_value = arr[pivot_index];
   
@@ -69,8 +70,8 @@ int Partition(std::vector<int>& arr, int left, int right) {
   return j;
 }
 
-// Функция простого слияния
-void SimpleMerge(std::vector<int>& arr, int left, int mid, int right) {
+// Статическая функция простого слияния
+static void SimpleMerge(std::vector<int>& arr, int left, int mid, int right) {
   std::vector<int> temp(right - left + 1);
   
   int i = left, j = mid + 1, k = 0;
@@ -87,6 +88,42 @@ void SimpleMerge(std::vector<int>& arr, int left, int mid, int right) {
     arr[left + idx] = temp[idx];
   }
 }
+
+// Итеративная версия быстрой сортировки с использованием стека
+static void QuickSortWithSimpleMerge(std::vector<int>& arr, int left, int right) {
+  struct Range { int left; int right; };
+  std::stack<Range> stack;
+  stack.push({left, right});
+  
+  while (!stack.empty()) {
+    Range current = stack.top();
+    stack.pop();
+    
+    if (current.left >= current.right) continue;
+    
+    int pivot_index = Partition(arr, current.left, current.right);
+    
+    // Оптимизация: сначала добавляем меньший подмассив
+    int left_size = pivot_index - current.left;
+    int right_size = current.right - pivot_index;
+    
+    if (left_size > 1 && right_size > 1) {
+      if (left_size > right_size) {
+        stack.push({pivot_index + 1, current.right});
+        stack.push({current.left, pivot_index - 1});
+      } else {
+        stack.push({current.left, pivot_index - 1});
+        stack.push({pivot_index + 1, current.right});
+      }
+    } else if (left_size > 1) {
+      stack.push({current.left, pivot_index - 1});
+    } else if (right_size > 1) {
+      stack.push({pivot_index + 1, current.right});
+    }
+    
+    SimpleMerge(arr, current.left, pivot_index, current.right);
+  }
+}
 ```
 
 
@@ -101,7 +138,7 @@ void SimpleMerge(std::vector<int>& arr, int left, int mid, int right) {
 **Память:**
 - O(N) для хранения входного вектора
 - O(N) для временного буфера при слиянии
-- O(log N) для стека рекурсии
+- O(log N) для явного стека
 
 ## 4. Схема распараллеливания
 
@@ -213,7 +250,9 @@ struct DistributionInfo {
   std::vector<int> displacements;
 };
 
-DistributionInfo PrepareDistributionInfo(int total_size, int world_size, int world_rank) {
+static DistributionInfo PrepareDistributionInfo(int total_size, 
+                                               int world_size, 
+                                               int world_rank) {
   DistributionInfo info;
   
   int base_size = total_size / world_size;
@@ -337,6 +376,7 @@ SEQ и MPI версии выдают идентичные результаты �
 ### 8.2. Особенности реализации
 
 - **Гибридный подход:** Комбинация быстрой сортировки и простого слияния
+- **Итеративная реализация:** Использование явного стека вместо рекурсии для надежности
 - **Балансировка нагрузки:** MPI_Bcast для согласованной проверки входных данных
 - **Оптимизация коммуникаций:** 
   - Использование MPI_Scatterv для неравномерного распределения
@@ -361,11 +401,12 @@ SEQ и MPI версии выдают идентичные результаты �
 #include "sinev_a_quicksort_with_simple_merge/mpi/include/ops_mpi.hpp"
 
 #include <mpi.h>
-
+#include <stack>
+#include <algorithm>
 #include <vector>
 
 #include "sinev_a_quicksort_with_simple_merge/common/include/common.hpp"
-#include "util/include/util.hpp"
+// #include "util/include/util.hpp"
 
 namespace sinev_a_quicksort_with_simple_merge {
 
@@ -376,7 +417,7 @@ SinevAQuicksortWithSimpleMergeMPI::SinevAQuicksortWithSimpleMergeMPI(const InTyp
 }
 
 bool SinevAQuicksortWithSimpleMergeMPI::ValidationImpl() {
-  int rank;
+  int rank = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
   if (rank == 0) {
@@ -389,33 +430,33 @@ bool SinevAQuicksortWithSimpleMergeMPI::ValidationImpl() {
 }
 
 bool SinevAQuicksortWithSimpleMergeMPI::PreProcessingImpl() {
-  int rank;
+  int rank = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  
+
   if (rank == 0) {
     GetOutput() = GetInput();
   }
   return true;
 }
 
-int SinevAQuicksortWithSimpleMergeMPI::Partition(std::vector<int>& arr, int left, int right) {
-  int pivot_index = left + (right - left) / 2;
+int SinevAQuicksortWithSimpleMergeMPI::Partition(std::vector<int> &arr, int left, int right) {
+  int pivot_index = left + ((right - left) / 2);
   int pivot_value = arr[pivot_index];
-  
+
   std::swap(arr[pivot_index], arr[left]);
-  
+
   int i = left + 1;
   int j = right;
-  
+
   while (i <= j) {
     while (i <= j && arr[i] <= pivot_value) {
       i++;
     }
-    
+
     while (i <= j && arr[j] > pivot_value) {
       j--;
     }
-    
+
     if (i < j) {
       std::swap(arr[i], arr[j]);
       i++;
@@ -424,20 +465,22 @@ int SinevAQuicksortWithSimpleMergeMPI::Partition(std::vector<int>& arr, int left
       break;
     }
   }
-  
+
   std::swap(arr[left], arr[j]);
   return j;
 }
 
-void SinevAQuicksortWithSimpleMergeMPI::SimpleMerge(std::vector<int>& arr, int left, int mid, int right) {
-  if (left >= right) return;
-  
+void SinevAQuicksortWithSimpleMergeMPI::SimpleMerge(std::vector<int> &arr, int left, int mid, int right) {  // NOLINT
+  if (left >= right) {
+    return;
+  }
+
   std::vector<int> temp(right - left + 1);
-  
+
   int i = left;
   int j = mid + 1;
   int k = 0;
-  
+
   while (i <= mid && j <= right) {
     if (arr[i] <= arr[j]) {
       temp[k++] = arr[i++];
@@ -445,46 +488,75 @@ void SinevAQuicksortWithSimpleMergeMPI::SimpleMerge(std::vector<int>& arr, int l
       temp[k++] = arr[j++];
     }
   }
-  
+
   while (i <= mid) {
     temp[k++] = arr[i++];
   }
-  
+
   while (j <= right) {
     temp[k++] = arr[j++];
   }
-  
+
   for (int idx = 0; idx < k; idx++) {
     arr[left + idx] = temp[idx];
   }
 }
 
-void SinevAQuicksortWithSimpleMergeMPI::QuickSortWithSimpleMerge(std::vector<int>& arr, int left, int right) {
-  if (left >= right) {
-    return;
+void SinevAQuicksortWithSimpleMergeMPI::QuickSortWithSimpleMerge(std::vector<int> &arr, int left, int right) {
+  struct Range {
+    int left;
+    int right;
+  };
+  
+  std::stack<Range> stack;
+  stack.push({left, right});
+  
+  while (!stack.empty()) {
+    Range current = stack.top();
+    stack.pop();
+    
+    int l = current.left;
+    int r = current.right;
+    
+    if (l >= r) {
+      continue;
+    }
+
+    int pivot_index = Partition(arr, l, r);
+    
+    int left_size = pivot_index - l;
+    int right_size = r - pivot_index;
+    
+    if (left_size > 1 && right_size > 1) {
+      if (left_size > right_size) {
+        stack.push({pivot_index + 1, r});  
+        stack.push({l, pivot_index - 1});  
+      } else {
+        stack.push({l, pivot_index - 1}); 
+        stack.push({pivot_index + 1, r});  
+      }
+    } else if (left_size > 1) {
+      stack.push({l, pivot_index - 1});
+    } else if (right_size > 1) {
+      stack.push({pivot_index + 1, r});
+    }
+    
+    SimpleMerge(arr, l, pivot_index, r);
   }
-  
-  int pivot_index = Partition(arr, left, right);
-  
-  QuickSortWithSimpleMerge(arr, left, pivot_index - 1);
-  QuickSortWithSimpleMerge(arr, pivot_index + 1, right);
-  
-  SimpleMerge(arr, left, pivot_index, right);
 }
 
-SinevAQuicksortWithSimpleMergeMPI::DistributionInfo 
-SinevAQuicksortWithSimpleMergeMPI::PrepareDistributionInfo(int total_size, int world_size, int world_rank) {
+SinevAQuicksortWithSimpleMergeMPI::DistributionInfo SinevAQuicksortWithSimpleMergeMPI::PrepareDistributionInfo(
+    int total_size, int world_size, int world_rank) {
   DistributionInfo info;
-  
+
   int base_size = total_size / world_size;
   int remainder = total_size % world_size;
-  
+
   info.local_size = base_size + (world_rank < remainder ? 1 : 0);
-  
-  // Инициализируем на всех процессах (MPI требует этого)
+
   info.send_counts.assign(world_size, 0);
   info.displacements.assign(world_size, 0);
-  
+
   if (world_rank == 0) {
     int displacement = 0;
     for (int i = 0; i < world_size; ++i) {
@@ -493,59 +565,60 @@ SinevAQuicksortWithSimpleMergeMPI::PrepareDistributionInfo(int total_size, int w
       displacement += info.send_counts[i];
     }
   }
-  
+
   return info;
 }
 
 std::vector<int> SinevAQuicksortWithSimpleMergeMPI::DistributeData(int world_size, int world_rank) {
   int total_size = 0;
-  
+
   if (world_rank == 0) {
     total_size = static_cast<int>(GetOutput().size());
   }
-  
+
   MPI_Bcast(&total_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
-  
+
   DistributionInfo info = PrepareDistributionInfo(total_size, world_size, world_rank);
-  
+
   std::vector<int> local_buffer(info.local_size);
-  
-  MPI_Scatterv(GetOutput().data(), info.send_counts.data(), info.displacements.data(), MPI_INT,
-               local_buffer.data(), info.local_size, MPI_INT, 0, MPI_COMM_WORLD);
-  
+
+  MPI_Scatterv(GetOutput().data(), info.send_counts.data(), info.displacements.data(), MPI_INT, local_buffer.data(),
+               info.local_size, MPI_INT, 0, MPI_COMM_WORLD);
+
   return local_buffer;
 }
 
 void SinevAQuicksortWithSimpleMergeMPI::ParallelQuickSort() {
-  int world_size, world_rank;
+  int world_size = 0;
+  int world_rank = 0;
   MPI_Comm_size(MPI_COMM_WORLD, &world_size);
   MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-  
+
   if (world_size == 1) {
     if (!GetOutput().empty()) {
       QuickSortWithSimpleMerge(GetOutput(), 0, static_cast<int>(GetOutput().size()) - 1);
     }
     return;
   }
-  
+
   // 1. Распределение данных по процессам
   std::vector<int> local_buffer = DistributeData(world_size, world_rank);
-  
+
   // 2. Локальная сортировка на каждом процессе
   if (!local_buffer.empty()) {
     QuickSortWithSimpleMerge(local_buffer, 0, static_cast<int>(local_buffer.size()) - 1);
   }
-  
+
   // 3. Сбор размеров от всех процессов
   std::vector<int> all_sizes(world_size);
   int local_size = static_cast<int>(local_buffer.size());
-  
+
   MPI_Gather(&local_size, 1, MPI_INT, all_sizes.data(), 1, MPI_INT, 0, MPI_COMM_WORLD);
-  
+
   // 4. Подготовка буфера на корневом процессе
   std::vector<int> displacements(world_size, 0);
   int total_size = 0;
-  
+
   if (world_rank == 0) {
     for (int i = 0; i < world_size; ++i) {
       displacements[i] = total_size;
@@ -553,33 +626,32 @@ void SinevAQuicksortWithSimpleMergeMPI::ParallelQuickSort() {
     }
     GetOutput().resize(total_size);
   }
-  
+
   // 5. Сбор данных на корневом процессе
-  int* recv_data = (world_rank == 0) ? GetOutput().data() : nullptr;
-  int* recv_counts = (world_rank == 0) ? all_sizes.data() : nullptr;
-  int* recv_displs = (world_rank == 0) ? displacements.data() : nullptr;
-  
-  MPI_Gatherv(local_buffer.data(), local_size, MPI_INT,
-              recv_data, recv_counts, recv_displs,
-              MPI_INT, 0, MPI_COMM_WORLD);
-  
+  int *recv_data = (world_rank == 0) ? GetOutput().data() : nullptr;
+  int *recv_counts = (world_rank == 0) ? all_sizes.data() : nullptr;
+  int *recv_displs = (world_rank == 0) ? displacements.data() : nullptr;
+
+  MPI_Gatherv(local_buffer.data(), local_size, MPI_INT, recv_data, recv_counts, recv_displs, MPI_INT, 0,
+              MPI_COMM_WORLD);
+
   // 6. Финальная сортировка на процессе 0
   if (world_rank == 0 && !GetOutput().empty()) {
     QuickSortWithSimpleMerge(GetOutput(), 0, static_cast<int>(GetOutput().size()) - 1);
   }
-  
+
   // 7. Рассылка результата (оставляем для корректной работы тестов)
   int final_size = 0;
   if (world_rank == 0) {
     final_size = static_cast<int>(GetOutput().size());
   }
-  
+
   MPI_Bcast(&final_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
-  
+
   if (world_rank != 0) {
     GetOutput().resize(final_size);
   }
-  
+
   MPI_Bcast(GetOutput().data(), final_size, MPI_INT, 0, MPI_COMM_WORLD);
 }
 
@@ -593,4 +665,5 @@ bool SinevAQuicksortWithSimpleMergeMPI::PostProcessingImpl() {
 }
 
 }  // namespace sinev_a_quicksort_with_simple_merge
+
 ```
