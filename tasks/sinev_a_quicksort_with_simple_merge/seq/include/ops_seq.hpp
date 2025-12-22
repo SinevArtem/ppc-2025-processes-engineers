@@ -20,7 +20,7 @@ class SinevAQuicksortWithSimpleMergeSEQ : public BaseTask {
   bool RunImpl() override;
   bool PostProcessingImpl() override;
 
-  void QuickSortWithSimpleMerge(std::vector<int> &arr, int left, int right);
+  static void QuickSortWithSimpleMerge(std::vector<int> &arr, int left, int right);
   static int Partition(std::vector<int> &arr, int left, int right);
   static void SimpleMerge(std::vector<int> &arr, int left, int mid, int right);
 };

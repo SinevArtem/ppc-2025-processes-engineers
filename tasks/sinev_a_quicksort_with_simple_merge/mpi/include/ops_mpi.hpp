@@ -22,7 +22,7 @@ class SinevAQuicksortWithSimpleMergeMPI : public BaseTask {
 
   static int Partition(std::vector<int> &arr, int left, int right);
   static void SimpleMerge(std::vector<int> &arr, int left, int mid, int right);
-  void QuickSortWithSimpleMerge(std::vector<int> &arr, int left, int right);
+  static void QuickSortWithSimpleMerge(std::vector<int> &arr, int left, int right);
 
   void ParallelQuickSort();
   std::vector<int> DistributeData(int world_size, int world_rank);
