@@ -192,8 +192,7 @@ std::vector<int> SinevAQuicksortWithSimpleMergeMPI::DistributeData(int world_siz
   return local_buffer;
 }
 
-void SinevAQuicksortWithSimpleMergeMPI::PerformMultiWayMerge(const std::vector<int>& all_sizes) {
-
+void SinevAQuicksortWithSimpleMergeMPI::PerformMultiWayMerge(const std::vector<int> &all_sizes) {
   std::vector<std::pair<int, int>> segments;
   int offset = 0;
   for (std::size_t i = 0; i < all_sizes.size(); ++i) {
@@ -205,7 +204,7 @@ void SinevAQuicksortWithSimpleMergeMPI::PerformMultiWayMerge(const std::vector<i
 
   while (segments.size() > 1) {
     std::vector<std::pair<int, int>> next_segments;
-    
+
     for (std::size_t i = 0; i < segments.size(); i += 2) {
       if (i + 1 < segments.size()) {
         int left = segments[i].first;
@@ -217,7 +216,7 @@ void SinevAQuicksortWithSimpleMergeMPI::PerformMultiWayMerge(const std::vector<i
         next_segments.push_back(segments[i]);
       }
     }
-    
+
     segments = std::move(next_segments);
   }
 }
