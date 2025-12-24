@@ -217,7 +217,7 @@ void SinevAQuicksortWithSimpleMergeMPI::PerformMultiWayMerge(const std::vector<i
       }
     }
 
-    segments = std::move(next_segments);
+    segments = std::move(next_segments); 
   }
 }
 
