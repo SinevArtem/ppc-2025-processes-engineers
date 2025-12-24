@@ -71,7 +71,7 @@ int SinevAQuicksortWithSimpleMergeMPI::Partition(std::vector<int> &arr, int left
   return j;
 }
 
-void SinevAQuicksortWithSimpleMergeMPI::SimpleMerge(std::vector<int> &arr, int left, int mid, int right) {  // NOLINT
+void SinevAQuicksortWithSimpleMergeMPI::SimpleMerge(std::vector<int> &arr, int left, int mid, int right) {
   if (left >= right) {
     return;
   }
@@ -236,9 +236,32 @@ void SinevAQuicksortWithSimpleMergeMPI::ParallelQuickSort() {
   MPI_Gatherv(local_buffer.data(), local_size, MPI_INT, recv_data, recv_counts, recv_displs, MPI_INT, 0,
               MPI_COMM_WORLD);
 
-  // 6. Финальная сортировка на процессе 0
+  // 6. Многостороннее слияние отсортированных частей на процессе 0
   if (world_rank == 0 && !GetOutput().empty()) {
-    QuickSortWithSimpleMerge(GetOutput(), 0, static_cast<int>(GetOutput().size()) - 1);
+    std::vector<std::pair<int, int>> segments;
+    int offset = 0;
+    for (int i = 0; i < world_size; ++i) {
+      if (all_sizes[i] > 0) {
+        segments.emplace_back(offset, offset + all_sizes[i] - 1);
+        offset += all_sizes[i];
+      }
+    }
+
+    while (segments.size() > 1) {
+      std::vector<std::pair<int, int>> next_segments;
+      for (size_t i = 0; i < segments.size(); i += 2) {
+        if (i + 1 < segments.size()) {
+          int left = segments[i].first;
+          int mid = segments[i].second;
+          int right = segments[i + 1].second;
+          SimpleMerge(GetOutput(), left, mid, right);
+          next_segments.emplace_back(left, right);
+        } else {
+          next_segments.push_back(segments[i]);
+        }
+      }
+      segments = std::move(next_segments);
+    }
   }
 
   // 7. Рассылка результата (оставляем для корректной работы тестов)
