@@ -4,7 +4,6 @@
 
 #include <algorithm>
 #include <cstddef>
-#include <cstdint>
 #include <stack>
 #include <utility>
 #include <vector>
@@ -195,10 +194,11 @@ std::vector<int> SinevAQuicksortWithSimpleMergeMPI::DistributeData(int world_siz
 void SinevAQuicksortWithSimpleMergeMPI::PerformMultiWayMerge(const std::vector<int> &all_sizes) {
   std::vector<std::pair<int, int>> segments;
   int offset = 0;
-  for (std::size_t i = 0; i < all_sizes.size(); ++i) {
-    if (all_sizes[i] > 0) {
-      segments.emplace_back(offset, offset + all_sizes[i] - 1);
-      offset += all_sizes[i];
+
+  for (int all_size : all_sizes) {
+    if (all_size > 0) {
+      segments.emplace_back(offset, offset + all_size - 1);
+      offset += all_size;
     }
   }
 
