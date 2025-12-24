@@ -3,7 +3,10 @@
 #include <mpi.h>
 
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
 #include <stack>
+#include <utility>
 #include <vector>
 
 #include "sinev_a_quicksort_with_simple_merge/common/include/common.hpp"
@@ -189,6 +192,54 @@ std::vector<int> SinevAQuicksortWithSimpleMergeMPI::DistributeData(int world_siz
   return local_buffer;
 }
 
+void SinevAQuicksortWithSimpleMergeMPI::PerformMultiWayMerge(const std::vector<int>& all_sizes) {
+
+  std::vector<std::pair<int, int>> segments;
+  int offset = 0;
+  for (std::size_t i = 0; i < all_sizes.size(); ++i) {
+    if (all_sizes[i] > 0) {
+      segments.emplace_back(offset, offset + all_sizes[i] - 1);
+      offset += all_sizes[i];
+    }
+  }
+
+  while (segments.size() > 1) {
+    std::vector<std::pair<int, int>> next_segments;
+    
+    for (std::size_t i = 0; i < segments.size(); i += 2) {
+      if (i + 1 < segments.size()) {
+        int left = segments[i].first;
+        int mid = segments[i].second;
+        int right = segments[i + 1].second;
+        SimpleMerge(GetOutput(), left, mid, right);
+        next_segments.emplace_back(left, right);
+      } else {
+        next_segments.push_back(segments[i]);
+      }
+    }
+    
+    segments = std::move(next_segments);
+  }
+}
+
+void SinevAQuicksortWithSimpleMergeMPI::BroadcastFinalResult() {
+  int world_rank = 0;
+  MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+
+  int final_size = 0;
+  if (world_rank == 0) {
+    final_size = static_cast<int>(GetOutput().size());
+  }
+
+  MPI_Bcast(&final_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+  if (world_rank != 0) {
+    GetOutput().resize(final_size);
+  }
+
+  MPI_Bcast(GetOutput().data(), final_size, MPI_INT, 0, MPI_COMM_WORLD);
+}
+
 void SinevAQuicksortWithSimpleMergeMPI::ParallelQuickSort() {
   int world_size = 0;
   int world_rank = 0;
@@ -238,45 +289,11 @@ void SinevAQuicksortWithSimpleMergeMPI::ParallelQuickSort() {
 
   // 6. Многостороннее слияние отсортированных частей на процессе 0
   if (world_rank == 0 && !GetOutput().empty()) {
-    std::vector<std::pair<int, int>> segments;
-    int offset = 0;
-    for (int i = 0; i < world_size; ++i) {
-      if (all_sizes[i] > 0) {
-        segments.emplace_back(offset, offset + all_sizes[i] - 1);
-        offset += all_sizes[i];
-      }
-    }
-
-    while (segments.size() > 1) {
-      std::vector<std::pair<int, int>> next_segments;
-      for (size_t i = 0; i < segments.size(); i += 2) {
-        if (i + 1 < segments.size()) {
-          int left = segments[i].first;
-          int mid = segments[i].second;
-          int right = segments[i + 1].second;
-          SimpleMerge(GetOutput(), left, mid, right);
-          next_segments.emplace_back(left, right);
-        } else {
-          next_segments.push_back(segments[i]);
-        }
-      }
-      segments = std::move(next_segments);
-    }
+    PerformMultiWayMerge(all_sizes);
   }
 
   // 7. Рассылка результата (оставляем для корректной работы тестов)
-  int final_size = 0;
-  if (world_rank == 0) {
-    final_size = static_cast<int>(GetOutput().size());
-  }
-
-  MPI_Bcast(&final_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
-
-  if (world_rank != 0) {
-    GetOutput().resize(final_size);
-  }
-
-  MPI_Bcast(GetOutput().data(), final_size, MPI_INT, 0, MPI_COMM_WORLD);
+  BroadcastFinalResult();
 }
 
 bool SinevAQuicksortWithSimpleMergeMPI::RunImpl() {

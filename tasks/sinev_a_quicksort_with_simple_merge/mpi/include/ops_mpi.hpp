@@ -24,8 +24,11 @@ class SinevAQuicksortWithSimpleMergeMPI : public BaseTask {
   static void SimpleMerge(std::vector<int> &arr, int left, int mid, int right);
   static void QuickSortWithSimpleMerge(std::vector<int> &arr, int left, int right);
 
+  void PerformMultiWayMerge(const std::vector<int>& all_sizes);
+  void BroadcastFinalResult();
   void ParallelQuickSort();
   std::vector<int> DistributeData(int world_size, int world_rank);
+  
 
   struct DistributionInfo {
     std::vector<int> send_counts;
